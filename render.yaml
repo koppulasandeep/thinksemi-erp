@@ -1,0 +1,22 @@
+databases:
+  - name: pcb-erp-db
+    plan: free
+    databaseName: pcb_erp
+    user: pcberp
+
+services:
+  - type: web
+    name: thinksemi-erp-api
+    runtime: docker
+    plan: free
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: pcb-erp-db
+          property: connectionString
+      - key: SECRET_KEY
+        generateValue: true
+      - key: CORS_ORIGINS
+        value: '["https://thinksemi-erp.netlify.app","http://localhost:5174"]'

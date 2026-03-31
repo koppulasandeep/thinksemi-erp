@@ -30,21 +30,23 @@ export function LoginPage() {
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError("")
     setLoading(true)
 
-    // Simulate a brief delay for UX
-    setTimeout(() => {
-      const user = login(email, password)
+    try {
+      const user = await login(email, password)
       if (user) {
         navigate("/", { replace: true })
       } else {
         setError("Invalid credentials")
       }
+    } catch {
+      setError("Login failed. Please try again.")
+    } finally {
       setLoading(false)
-    }, 400)
+    }
   }
 
   return (
