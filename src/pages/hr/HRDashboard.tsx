@@ -6,6 +6,7 @@ import { PageHeader } from "@/components/shared/PageHeader"
 import { Badge } from "@/components/ui/badge"
 import { cn, getInitials } from "@/lib/utils"
 import { employees, leaveRequests } from "@/lib/mock-data"
+import { useApiData, snakeToCamel } from "@/lib/useApi"
 import { Attendance } from "./Attendance"
 import { LeaveManagement } from "./LeaveManagement"
 import { Payroll } from "./Payroll"
@@ -40,9 +41,20 @@ const recentActivity = [
   { id: 5, text: "Quarterly performance review cycle started", time: "2 days ago", type: "pms" },
 ]
 
-const pendingCount = leaveRequests.filter((r) => r.status === "pending").length
+const pendingCountFallback = leaveRequests.filter((r) => r.status === "pending").length
 
 export function HRDashboard() {
+  const { data: emps } = useApiData(
+    "/hr/employees",
+    employees,
+    (raw: any) => {
+      const arr = raw?.employees ?? raw
+      if (!Array.isArray(arr)) return employees
+      return arr.map((e: any) => snakeToCamel(e)) as typeof employees
+    }
+  )
+
+  const pendingCount = pendingCountFallback
   const [activeTab, setActiveTab] = useState<TabId>("overview")
 
   return (
@@ -80,7 +92,7 @@ export function HRDashboard() {
       </div>
 
       {/* Tab Content */}
-      {activeTab === "overview" && <OverviewTab />}
+      {activeTab === "overview" && <OverviewTab employees={emps} />}
       {activeTab === "attendance" && <Attendance />}
       {activeTab === "leave" && <LeaveManagement />}
       {activeTab === "payroll" && <Payroll />}
@@ -90,10 +102,10 @@ export function HRDashboard() {
   )
 }
 
-function OverviewTab() {
+function OverviewTab({ employees: emps }: { employees: typeof employees }) {
   const presentToday = 6
   const onLeave = 1
-  const totalEmployees = employees.length
+  const totalEmployees = emps.length
 
   return (
     <div className="space-y-6">
@@ -121,7 +133,7 @@ function OverviewTab() {
         />
         <KPICard
           title="Pending Requests"
-          value={String(pendingCount)}
+          value={String(pendingCountFallback)}
           subtitle="Awaiting approval"
           icon={Clock}
           iconColor="text-info"
@@ -163,7 +175,7 @@ function OverviewTab() {
             <CardTitle className="text-sm font-medium">Employee Directory</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
-            {employees.slice(0, 6).map((emp) => (
+            {emps.slice(0, 6).map((emp) => (
               <div
                 key={emp.id}
                 className="flex items-center gap-3 rounded-lg border p-2.5 hover:bg-accent/50 transition-colors cursor-pointer"
@@ -180,9 +192,9 @@ function OverviewTab() {
                 </Badge>
               </div>
             ))}
-            {employees.length > 6 && (
+            {emps.length > 6 && (
               <p className="text-xs text-muted-foreground text-center pt-1">
-                +{employees.length - 6} more
+                +{emps.length - 6} more
               </p>
             )}
           </CardContent>

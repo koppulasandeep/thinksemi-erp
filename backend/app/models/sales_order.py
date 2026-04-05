@@ -74,6 +74,9 @@ class SalesOrder(Base):
     payment_milestones: Mapped[list["SOPaymentMilestone"]] = relationship(
         back_populates="sales_order", cascade="all, delete-orphan"
     )
+    delivery_schedules: Mapped[list["DeliverySchedule"]] = relationship(
+        back_populates="sales_order", cascade="all, delete-orphan"
+    )
 
 
 class SOLineItem(Base):
@@ -128,4 +131,39 @@ class SOPaymentMilestone(Base):
     # relationship
     sales_order: Mapped["SalesOrder"] = relationship(
         back_populates="payment_milestones"
+    )
+
+
+class DeliverySchedule(Base):
+    __tablename__ = "delivery_schedules"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        primary_key=True,
+        server_default=text("gen_random_uuid()"),
+    )
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("tenants.id", ondelete="CASCADE")
+    )
+    sales_order_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("sales_orders.id", ondelete="CASCADE")
+    )
+    batch_label: Mapped[str] = mapped_column(String(50))
+    quantity: Mapped[int] = mapped_column(Integer)
+    scheduled_date: Mapped[date] = mapped_column(Date)
+    status: Mapped[str] = mapped_column(
+        String(20),
+        server_default="scheduled",
+        comment="scheduled|shipped|delivered",
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+    # relationship
+    sales_order: Mapped["SalesOrder"] = relationship(
+        back_populates="delivery_schedules"
     )

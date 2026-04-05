@@ -44,6 +44,9 @@ class InventoryItem(Base):
     reorder_quantity: Mapped[int] = mapped_column(
         Integer, server_default=text("0")
     )
+    unit_price: Mapped[float | None] = mapped_column(
+        Numeric(10, 4), nullable=True, server_default=text("0")
+    )
     last_received: Mapped[date | None] = mapped_column(Date, nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(

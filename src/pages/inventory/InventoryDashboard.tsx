@@ -16,11 +16,22 @@ import { KPICard } from "@/components/shared/KPICard"
 import { cn, formatCurrency, formatNumber } from "@/lib/utils"
 import { ExportButtons } from "@/components/shared/ExportButtons"
 import { inventoryItems } from "@/lib/mock-data"
+import { useApiData, snakeToCamel } from "@/lib/useApi"
 
 export function InventoryDashboard() {
+  const { data: invItems } = useApiData(
+    "/inventory/items",
+    inventoryItems,
+    (raw: any) => {
+      const arr = raw?.items ?? raw
+      if (!Array.isArray(arr)) return inventoryItems
+      return arr.map((item: any) => snakeToCamel(item)) as typeof inventoryItems
+    }
+  )
+
   const [search, setSearch] = useState("")
 
-  const filtered = inventoryItems.filter(
+  const filtered = invItems.filter(
     (item) =>
       item.partNumber.toLowerCase().includes(search.toLowerCase()) ||
       item.description.toLowerCase().includes(search.toLowerCase()) ||
@@ -28,13 +39,13 @@ export function InventoryDashboard() {
   )
 
   // KPI calculations
-  const totalSKUs = inventoryItems.length
+  const totalSKUs = invItems.length
   // Approximate total value (stock * avg unit price based on mock data)
   const totalValue = 1842000
-  const lowStockCount = inventoryItems.filter(
+  const lowStockCount = invItems.filter(
     (i) => i.stock > 0 && i.stock < i.reorderPoint
   ).length
-  const outOfStockCount = inventoryItems.filter((i) => i.stock === 0).length
+  const outOfStockCount = invItems.filter((i) => i.stock === 0).length
   const expiredCount = 0 // Placeholder
 
   function getStockStatus(item: (typeof inventoryItems)[0]) {

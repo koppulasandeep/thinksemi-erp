@@ -23,6 +23,8 @@ import { Badge } from "@/components/ui/badge"
 import { StatusBadge } from "@/components/shared/StatusBadge"
 import { Separator } from "@/components/ui/separator"
 import { formatCurrency, getInitials, cn } from "@/lib/utils"
+import { useApiData, snakeToCamel } from "@/lib/useApi"
+import { api } from "@/lib/api"
 
 // ── Types ──
 
@@ -222,11 +224,21 @@ const statutoryReports = [
 // ── Component ──
 
 export function Payroll() {
+  const mockPayroll = generatePayroll()
+  const { data: payroll, refetch } = useApiData(
+    "/hr/payroll/batches",
+    mockPayroll,
+    (raw: any) => {
+      const arr = raw?.batches ?? raw?.employees ?? raw
+      if (!Array.isArray(arr)) return mockPayroll
+      return arr.map((e: any) => snakeToCamel(e)) as typeof mockPayroll
+    }
+  )
+
   const [status, setStatus] = useState<"draft" | "processing" | "approved">("draft")
   const [viewMode, setViewMode] = useState<"monthly" | "annual">("monthly")
   const [selectedEmployee, setSelectedEmployee] = useState<string | null>(null)
   const [activeSection, setActiveSection] = useState<"register" | "payslip" | "statutory" | "slabs">("register")
-  const payroll = generatePayroll()
 
   const totalGross = payroll.reduce((s, r) => s + r.grossPay, 0)
   const totalNet = payroll.reduce((s, r) => s + r.netPay, 0)
@@ -236,9 +248,15 @@ export function Payroll() {
   const totalESI = payroll.reduce((s, r) => s + r.deductions.esiEmployee + r.deductions.esiEmployer, 0)
   const multiplier = viewMode === "annual" ? 12 : 1
 
-  const handleRunPayroll = () => {
+  const handleRunPayroll = async () => {
     setStatus("processing")
-    setTimeout(() => setStatus("approved"), 1500)
+    // Try to submit to backend; fall back to local state change
+    const batchId = "march-2026"
+    await api.patch(`/hr/payroll/batches/${batchId}/submit`).catch(() => {})
+    setTimeout(() => {
+      setStatus("approved")
+      refetch()
+    }, 1500)
   }
 
   const selectedEmp = payroll.find((e) => e.empId === selectedEmployee)

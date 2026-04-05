@@ -23,6 +23,7 @@ import { Progress } from "@/components/ui/progress"
 import { PageHeader } from "@/components/shared/PageHeader"
 import { KPICard } from "@/components/shared/KPICard"
 import { cn } from "@/lib/utils"
+import { api } from "@/lib/api"
 import {
   BarChart,
   Bar,
@@ -256,7 +257,11 @@ function BoardTraceTab() {
   const [expandedStep, setExpandedStep] = useState<number | null>(null)
 
   const handleSearch = () => {
-    if (query.trim()) setSearched(true)
+    if (query.trim()) {
+      setSearched(true)
+      // Fire API search (results will be used when endpoint is ready)
+      api.get(`/traceability/search?q=${encodeURIComponent(query.trim())}`).catch(() => {})
+    }
   }
 
   return (
@@ -420,7 +425,10 @@ function ComponentTraceTab() {
   const [searched, setSearched] = useState(true)
 
   const handleSearch = () => {
-    if (query.trim()) setSearched(true)
+    if (query.trim()) {
+      setSearched(true)
+      api.get(`/traceability/search?q=${encodeURIComponent(query.trim())}`).catch(() => {})
+    }
   }
 
   const statusCounts = componentTraceResult.boards.reduce((acc, b) => {
@@ -542,7 +550,10 @@ function LotTraceTab() {
   const [expandedReel, setExpandedReel] = useState<string | null>(null)
 
   const handleSearch = () => {
-    if (query.trim()) setSearched(true)
+    if (query.trim()) {
+      setSearched(true)
+      api.get(`/traceability/search?q=${encodeURIComponent(query.trim())}`).catch(() => {})
+    }
   }
 
   const allBoards = lotTraceResult.reels.flatMap((r) => r.boards)

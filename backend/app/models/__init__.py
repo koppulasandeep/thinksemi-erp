@@ -6,7 +6,7 @@ from app.models.activity import Activity
 from app.models.employee import Employee, Attendance, LeaveBalance, LeaveRequest
 from app.models.payroll import PayrollBatch, PayrollEmployee
 from app.models.crm import CRMLead, CRMContact, CRMActivity, Quotation
-from app.models.sales_order import SalesOrder, SOLineItem, SOPaymentMilestone
+from app.models.sales_order import SalesOrder, SOLineItem, SOPaymentMilestone, DeliverySchedule
 from app.models.bom import BOMItem, BOMRevision, BOMAlternate
 from app.models.purchase_order import PurchaseOrder, POLineItem
 from app.models.supplier import Supplier
@@ -39,6 +39,7 @@ __all__ = [
     "SalesOrder",
     "SOLineItem",
     "SOPaymentMilestone",
+    "DeliverySchedule",
     "BOMItem",
     "BOMRevision",
     "BOMAlternate",

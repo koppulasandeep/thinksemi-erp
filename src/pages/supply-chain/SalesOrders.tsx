@@ -27,6 +27,7 @@ import { StatusBadge } from "@/components/shared/StatusBadge"
 import { cn, formatCurrency, formatNumber } from "@/lib/utils"
 import { ExportButtons } from "@/components/shared/ExportButtons"
 import { salesOrders } from "@/lib/mock-data"
+import { useApiData, snakeToCamel } from "@/lib/useApi"
 
 const tabs = [
   { key: "all", label: "All Orders" },
@@ -69,12 +70,41 @@ const milestoneIcons = {
 }
 
 export function SalesOrders() {
+  const { data: orders } = useApiData(
+    "/supply-chain/sales-orders",
+    salesOrders,
+    (raw: any) => {
+      const arr = raw?.sales_orders ?? raw
+      if (!Array.isArray(arr)) return salesOrders
+      return arr.map((so: any) => {
+        const c = snakeToCamel(so)
+        return {
+          id: c.refNumber ?? c.id,
+          customer: c.customerName ?? c.customer,
+          board: c.boardName ?? c.board,
+          qty: c.qty ?? c.quantity ?? 0,
+          value: c.totalValue ?? c.value ?? 0,
+          dueDate: c.dueDate ?? "",
+          orderDate: c.orderDate ?? "",
+          status: c.status ?? "scheduled",
+          paymentStatus: c.paymentStatus ?? "pending",
+          priority: c.priority ?? "medium",
+          lineItems: c.lineItems ?? [],
+          paymentMilestones: c.paymentMilestones ?? [],
+          deliverySchedule: c.deliverySchedule ?? [],
+          bomId: c.bomId ?? "",
+          woId: c.woId ?? "",
+        }
+      }) as typeof salesOrders
+    }
+  )
+
   const [search, setSearch] = useState("")
   const [activeTab, setActiveTab] = useState<TabKey>("all")
   const [expandedRow, setExpandedRow] = useState<string | null>(null)
 
   const tabFilter = getTabFilter(activeTab)
-  const filtered = salesOrders
+  const filtered = orders
     .filter(tabFilter)
     .filter(
       (so) =>
@@ -88,23 +118,23 @@ export function SalesOrders() {
   const thisYear = today.getFullYear()
 
   // KPIs
-  const totalOrders = salesOrders.length
-  const revenueThisMonth = salesOrders
+  const totalOrders = orders.length
+  const revenueThisMonth = orders
     .filter((so) => {
       const d = new Date(so.orderDate)
       return d.getMonth() === thisMonth && d.getFullYear() === thisYear
     })
     .reduce((s, o) => s + o.value, 0)
-  const shippedOnTime = salesOrders.filter((so) => so.status === "shipped" || so.status === "invoiced").length
-  const totalCompleted = salesOrders.filter((so) =>
+  const shippedOnTime = orders.filter((so) => so.status === "shipped" || so.status === "invoiced").length
+  const totalCompleted = orders.filter((so) =>
     ["shipped", "invoiced", "production"].includes(so.status)
   ).length
   const onTimePercent = totalCompleted > 0 ? ((shippedOnTime / totalCompleted) * 100) : 0
-  const avgOrderValue = salesOrders.reduce((s, o) => s + o.value, 0) / salesOrders.length
+  const avgOrderValue = orders.reduce((s, o) => s + o.value, 0) / orders.length
 
   const tabCounts: Record<string, number> = {}
   for (const tab of tabs) {
-    tabCounts[tab.key] = salesOrders.filter(getTabFilter(tab.key)).length
+    tabCounts[tab.key] = orders.filter(getTabFilter(tab.key)).length
   }
 
   function isOverdue(dueDate: string, status: string) {
@@ -124,13 +154,13 @@ export function SalesOrders() {
         <KPICard
           title="Total Orders"
           value={String(totalOrders)}
-          subtitle={`${salesOrders.filter((s) => s.status === "production").length} in production`}
+          subtitle={`${orders.filter((s) => s.status === "production").length} in production`}
           icon={Package}
           color="blue"
         />
         <KPICard
           title="Revenue This Month"
-          value={formatCurrency(revenueThisMonth || salesOrders.reduce((s, o) => s + o.value, 0))}
+          value={formatCurrency(revenueThisMonth || orders.reduce((s, o) => s + o.value, 0))}
           change={12}
           changePeriod="MoM"
           icon={DollarSign}

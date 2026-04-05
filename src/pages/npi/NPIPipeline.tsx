@@ -1,11 +1,13 @@
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { PageHeader } from "@/components/shared/PageHeader"
 import { KPICard } from "@/components/shared/KPICard"
 import { cn } from "@/lib/utils"
-import { npiProjects } from "@/lib/mock-data"
+import { npiProjects as mockNpiProjects } from "@/lib/mock-data"
+import { useApiData, transformList } from "@/lib/useApi"
+import { api } from "@/lib/api"
 import {
   Plus,
   CheckCircle2,
@@ -49,7 +51,7 @@ const stages = [
 ] as const
 
 type Stage = (typeof stages)[number]
-type NpiProject = (typeof npiProjects)[number]
+type NpiProject = (typeof mockNpiProjects)[number]
 
 const pipelineTabs = [
   { id: "pipeline", label: "Pipeline", icon: Kanban },
@@ -461,7 +463,11 @@ function MetricsViewTab({ projects }: { projects: NpiProject[] }) {
 // --- Main component ---
 
 export function NPIPipeline() {
-  const [projects, setProjects] = useState(npiProjects)
+  const { data: apiProjects, refetch } = useApiData("/npi/projects", mockNpiProjects, (raw: any) =>
+    transformList(raw?.projects ?? [], undefined) as typeof mockNpiProjects
+  )
+  const [projects, setProjects] = useState(apiProjects)
+  useEffect(() => { setProjects(apiProjects) }, [apiProjects])
   const [activeTab, setActiveTab] = useState<PipelineTab>("pipeline")
   const [activeId, setActiveId] = useState<string | null>(null)
   const [overColumnId, setOverColumnId] = useState<string | null>(null)
@@ -491,7 +497,7 @@ export function NPIPipeline() {
           acc[stage] = filteredProjects.filter((p) => p.stage === stage)
           return acc
         },
-        {} as Record<Stage, typeof npiProjects>
+        {} as Record<Stage, typeof mockNpiProjects>
       ),
     [filteredProjects]
   )
@@ -529,6 +535,10 @@ export function NPIPipeline() {
     const targetColumn = findColumn(overId)
     if (!targetColumn) return
     setProjects((prev) => prev.map((p) => (p.id === activeProjectId ? { ...p, stage: targetColumn } : p)))
+    // Persist stage change to backend
+    api.patch(`/npi/projects/${activeProjectId}/stage`, { stage: targetColumn }).catch(() => {
+      refetch()
+    })
   }
 
   function handleDragCancel() {

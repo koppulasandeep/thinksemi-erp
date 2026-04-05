@@ -23,6 +23,7 @@ import { StatusBadge } from "@/components/shared/StatusBadge"
 import { cn, formatCurrency, formatNumber } from "@/lib/utils"
 import { ExportButtons } from "@/components/shared/ExportButtons"
 import { purchaseOrders, suppliers } from "@/lib/mock-data"
+import { useApiData, snakeToCamel } from "@/lib/useApi"
 
 const tabs = [
   { key: "all", label: "All" },
@@ -36,12 +37,36 @@ const tabs = [
 type TabKey = (typeof tabs)[number]["key"]
 
 export function PurchaseOrders() {
+  const { data: poData } = useApiData(
+    "/supply-chain/purchase-orders",
+    purchaseOrders,
+    (raw: any) => {
+      const arr = raw?.purchase_orders ?? raw
+      if (!Array.isArray(arr)) return purchaseOrders
+      return arr.map((po: any) => {
+        const c = snakeToCamel(po)
+        return {
+          id: c.refNumber ?? c.id,
+          supplier: c.supplierName ?? c.supplier,
+          items: c.items ?? c.itemCount ?? 0,
+          total: c.total ?? c.totalValue ?? 0,
+          eta: c.eta ?? c.expectedDate ?? "",
+          status: c.status ?? "draft",
+          orderedQty: c.orderedQty ?? 0,
+          receivedQty: c.receivedQty ?? 0,
+          leadTimeDays: c.leadTimeDays ?? 0,
+          lineItems: (c.lineItems ?? []).map((li: any) => snakeToCamel(li)),
+        }
+      }) as typeof purchaseOrders
+    }
+  )
+
   const [activeTab, setActiveTab] = useState<TabKey>("all")
   const [search, setSearch] = useState("")
   const [expandedRow, setExpandedRow] = useState<string | null>(null)
   const [receivingPO, setReceivingPO] = useState<string | null>(null)
 
-  const filtered = purchaseOrders.filter((po) => {
+  const filtered = poData.filter((po) => {
     const matchesSearch =
       po.id.toLowerCase().includes(search.toLowerCase()) ||
       po.supplier.toLowerCase().includes(search.toLowerCase())
@@ -53,20 +78,20 @@ export function PurchaseOrders() {
   for (const tab of tabs) {
     tabCounts[tab.key] =
       tab.key === "all"
-        ? purchaseOrders.length
-        : purchaseOrders.filter((po) => po.status === tab.key).length
+        ? poData.length
+        : poData.filter((po) => po.status === tab.key).length
   }
 
   // KPIs
-  const openPOs = purchaseOrders.filter((po) => po.status !== "closed").length
-  const pendingValue = purchaseOrders
+  const openPOs = poData.filter((po) => po.status !== "closed").length
+  const pendingValue = poData
     .filter((po) => po.status !== "closed")
     .reduce((s, po) => s + po.total, 0)
-  const overduePOs = purchaseOrders.filter((po) => {
+  const overduePOs = poData.filter((po) => {
     return po.status === "delayed" || (new Date(po.eta) < new Date() && po.status !== "closed")
   }).length
   const avgLeadTime = Math.round(
-    purchaseOrders.reduce((s, po) => s + po.leadTimeDays, 0) / purchaseOrders.length
+    poData.reduce((s, po) => s + po.leadTimeDays, 0) / poData.length
   )
 
   // Supplier performance lookup
@@ -85,7 +110,7 @@ export function PurchaseOrders() {
         <KPICard
           title="Open POs"
           value={String(openPOs)}
-          subtitle={`${purchaseOrders.filter((p) => p.status === "confirmed").length} confirmed`}
+          subtitle={`${poData.filter((p) => p.status === "confirmed").length} confirmed`}
           icon={ClipboardCheck}
           color="blue"
         />

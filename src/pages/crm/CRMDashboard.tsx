@@ -9,6 +9,7 @@ import { KPICard } from "@/components/shared/KPICard"
 import { PageHeader } from "@/components/shared/PageHeader"
 import { cn, formatCurrency } from "@/lib/utils"
 import { crmLeads } from "@/lib/mock-data"
+import { useApiData, transformList } from "@/lib/useApi"
 import { Pipeline } from "./Pipeline"
 import { Quotations } from "./Quotations"
 import { Contacts } from "./Contacts"
@@ -26,17 +27,39 @@ const tabs = [
 
 type TabId = (typeof tabs)[number]["id"]
 
+// Map backend snake_case stages to frontend display labels
+const stageBackendToFrontend: Record<string, string> = {
+  new_lead: "New Lead",
+  qualified: "Qualified",
+  quoted: "Quoted",
+  negotiation: "Negotiation",
+  won: "Won",
+  lost: "Lost",
+}
+
+function transformLeads(raw: any): typeof crmLeads {
+  const items = raw?.leads ?? []
+  return transformList(items, (item: any) => ({
+    ...item,
+    id: item.id ?? item.lead_id,
+    stage: stageBackendToFrontend[item.stage] ?? item.stage,
+    company: item.company ?? item.company_name,
+    contact: item.contact ?? item.contact_name,
+  }))
+}
+
 export function CRMDashboard() {
   const [activeTab, setActiveTab] = useState<TabId>("pipeline")
+  const { data: leads } = useApiData("/crm/leads", crmLeads, transformLeads)
 
-  const totalPipeline = crmLeads.reduce((sum, l) => sum + l.value, 0)
-  const weightedValue = crmLeads.reduce(
+  const totalPipeline = leads.reduce((sum, l) => sum + l.value, 0)
+  const weightedValue = leads.reduce(
     (sum, l) => sum + l.value * (l.probability / 100),
     0
   )
-  const leadsCount = crmLeads.length
-  const wonLeads = crmLeads.filter((l) => l.stage === "Won").length
-  const closableLeads = crmLeads.filter(
+  const leadsCount = leads.length
+  const wonLeads = leads.filter((l) => l.stage === "Won").length
+  const closableLeads = leads.filter(
     (l) => l.stage !== "New Lead" && l.stage !== "Lost"
   ).length
   const conversionRate =
@@ -114,6 +137,8 @@ export function CRMDashboard() {
 // ─── Leads Table (inline, simple) ───
 
 function LeadsTable() {
+  const { data: leads } = useApiData("/crm/leads", crmLeads, transformLeads)
+
   return (
     <div className="rounded-lg border bg-card">
       <div className="overflow-x-auto">
@@ -144,7 +169,7 @@ function LeadsTable() {
             </tr>
           </thead>
           <tbody>
-            {crmLeads.map((lead) => (
+            {leads.map((lead) => (
               <tr
                 key={lead.id}
                 className="border-b last:border-0 hover:bg-muted/30 transition-colors"

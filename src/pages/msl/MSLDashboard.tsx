@@ -18,6 +18,8 @@ import { KPICard } from "@/components/shared/KPICard"
 import { StatusBadge } from "@/components/shared/StatusBadge"
 import { cn } from "@/lib/utils"
 import { mslReels } from "@/lib/mock-data"
+import { useApiData, snakeToCamel } from "@/lib/useApi"
+import { api } from "@/lib/api"
 
 function formatHours(h: number): string {
   if (!isFinite(h)) return "\u221e"
@@ -40,26 +42,44 @@ function getProgressColor(percent: number): string {
 }
 
 export function MSLDashboard() {
+  const { data: reelsData, refetch } = useApiData(
+    "/inventory/msl",
+    mslReels,
+    (raw: any) => {
+      const arr = raw?.reels ?? raw
+      if (!Array.isArray(arr)) return mslReels
+      return arr.map((r: any) => snakeToCamel(r)) as typeof mslReels
+    }
+  )
+
   const [search, setSearch] = useState("")
   const [selected, setSelected] = useState<Set<string>>(new Set())
 
-  const filtered = mslReels.filter(
+  const handleSendToBake = async () => {
+    for (const reelId of selected) {
+      await api.post(`/inventory/msl/${reelId}/bake`, { bake_hours: 24 }).catch(() => {})
+    }
+    setSelected(new Set())
+    refetch()
+  }
+
+  const filtered = reelsData.filter(
     (reel) =>
       reel.reelId.toLowerCase().includes(search.toLowerCase()) ||
       reel.partNumber.toLowerCase().includes(search.toLowerCase())
   )
 
   // KPI calculations
-  const exposedReels = mslReels.filter(
+  const exposedReels = reelsData.filter(
     (r) => r.msl > 1 && isFinite(r.remainingHours) && r.remainingHours < r.floorLifeHours
   ).length
-  const expiringWithin4h = mslReels.filter(
+  const expiringWithin4h = reelsData.filter(
     (r) => isFinite(r.remainingHours) && r.remainingHours > 0 && r.remainingHours <= 4
   ).length
-  const expiredReels = mslReels.filter(
+  const expiredReels = reelsData.filter(
     (r) => isFinite(r.remainingHours) && r.remainingHours <= 0
   ).length
-  const inDryStorage = mslReels.filter((r) => r.msl === 1 || !isFinite(r.remainingHours)).length
+  const inDryStorage = reelsData.filter((r) => r.msl === 1 || !isFinite(r.remainingHours)).length
 
   function toggleSelect(reelId: string) {
     setSelected((prev) => {
@@ -132,6 +152,7 @@ export function MSLDashboard() {
             size="sm"
             disabled={selected.size === 0}
             className="text-warning border-warning/30 hover:bg-warning/10"
+            onClick={handleSendToBake}
           >
             <Flame className="h-4 w-4 mr-1.5" />
             Send to Bake

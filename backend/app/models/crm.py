@@ -43,8 +43,8 @@ class CRMLead(Base):
         server_default="new_lead",
         comment="new_lead|qualified|quoted|negotiation|won|lost",
     )
-    assigned_to: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("users.id", ondelete="CASCADE")
+    assigned_to: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=True
     )
     source: Mapped[str | None] = mapped_column(
         String(30),
@@ -117,8 +117,8 @@ class CRMActivity(Base):
     completed_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
-    assigned_to: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("users.id", ondelete="CASCADE")
+    assigned_to: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=True
     )
 
     created_at: Mapped[datetime] = mapped_column(

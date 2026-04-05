@@ -7,7 +7,8 @@ import { KPICard } from "@/components/shared/KPICard"
 import { StatusBadge } from "@/components/shared/StatusBadge"
 import { cn } from "@/lib/utils"
 import { formatCurrency } from "@/lib/utils"
-import { ecoList } from "@/lib/mock-data"
+import { ecoList as mockEcoList } from "@/lib/mock-data"
+import { useApiData, transformList } from "@/lib/useApi"
 import {
   Plus,
   Search,
@@ -49,7 +50,7 @@ const typeColors: Record<string, string> = {
 }
 
 // Mock: ECOs pending current user approval
-const myApprovalEcos = ecoList.filter((e) => e.status === "pending")
+const myApprovalEcos = mockEcoList.filter((e) => e.status === "pending")
 
 // Mock: Impact analysis summary data
 const impactSummary = {
@@ -72,6 +73,9 @@ const impactSummary = {
 // --- All ECOs Tab ---
 
 function AllECOsTab({ search, setSearch }: { search: string; setSearch: (s: string) => void }) {
+  const { data: ecoList } = useApiData("/eco/", mockEcoList, (raw: any) =>
+    transformList(raw?.ecos ?? [], undefined) as typeof mockEcoList
+  )
   const [statusFilter, setStatusFilter] = useState<StatusTabId>("all")
 
   const filtered = ecoList.filter((eco) => {
@@ -261,7 +265,7 @@ function ImpactAnalysisTab() {
             <FileEdit className="h-4 w-4 text-purple-500" />
             <p className="text-xs text-muted-foreground uppercase tracking-wider">Open ECOs</p>
           </div>
-          <p className="text-2xl font-bold">{ecoList.filter((e) => e.status !== "completed").length}</p>
+          <p className="text-2xl font-bold">{mockEcoList.filter((e) => e.status !== "completed").length}</p>
           <p className="text-xs text-muted-foreground">with active impact</p>
         </Card>
       </div>
@@ -333,8 +337,11 @@ function ImpactAnalysisTab() {
 // --- Metrics Tab ---
 
 function MetricsTab() {
-  const totalEcos = ecoList.length
-  const completedEcos = ecoList.filter((e) => e.status === "completed").length
+  const { data: ecoListData } = useApiData("/eco/", mockEcoList, (raw: any) =>
+    transformList(raw?.ecos ?? [], undefined) as typeof mockEcoList
+  )
+  const totalEcos = ecoListData.length
+  const completedEcos = ecoListData.filter((e) => e.status === "completed").length
   const implementationRate = Math.round((completedEcos / totalEcos) * 100)
 
   return (
@@ -404,11 +411,11 @@ function MetricsTab() {
               </div>
               <div className="flex items-center justify-between text-sm">
                 <span className="text-muted-foreground">In Progress</span>
-                <span className="font-medium">{ecoList.filter((e) => e.status === "in_progress").length}</span>
+                <span className="font-medium">{ecoListData.filter((e) => e.status === "in_progress").length}</span>
               </div>
               <div className="flex items-center justify-between text-sm">
                 <span className="text-muted-foreground">Pending</span>
-                <span className="font-medium text-warning">{ecoList.filter((e) => e.status === "pending").length}</span>
+                <span className="font-medium text-warning">{ecoListData.filter((e) => e.status === "pending").length}</span>
               </div>
             </div>
           </CardContent>
@@ -456,6 +463,9 @@ function MetricsTab() {
 // --- Main Component ---
 
 export function ECOList() {
+  const { data: ecoList } = useApiData("/eco/", mockEcoList, (raw: any) =>
+    transformList(raw?.ecos ?? [], undefined) as typeof mockEcoList
+  )
   const [activeTab, setActiveTab] = useState<ListTab>("all")
   const [search, setSearch] = useState("")
 

@@ -21,6 +21,7 @@ import { StatusBadge } from "@/components/shared/StatusBadge"
 import { KPICard } from "@/components/shared/KPICard"
 import { ExportButtons } from "@/components/shared/ExportButtons"
 import { cn, formatNumber } from "@/lib/utils"
+import { useApiData, transformList } from "@/lib/useApi"
 
 // ─── Tabs ───
 const tabs = [
@@ -95,11 +96,14 @@ const docStatusClass: Record<string, string> = {
 }
 
 export function DeliveryDashboard() {
+  const { data: shipments } = useApiData("/delivery/shipments", allShipments, (raw: any) =>
+    transformList(raw?.shipments ?? [], undefined) as typeof allShipments
+  )
   const [activeTab, setActiveTab] = useState<TabId>("overview")
   const [expandedShipment, setExpandedShipment] = useState<string | null>(null)
 
-  const deliveredCount = allShipments.filter((s) => s.status === "delivered").length
-  const inTransitCount = allShipments.filter((s) => s.status === "in_transit").length
+  const deliveredCount = shipments.filter((s) => s.status === "delivered").length
+  const inTransitCount = shipments.filter((s) => s.status === "in_transit").length
   const pendingPacking = packingQueue.length
   const onTimeRate = 94.2
 
@@ -113,7 +117,7 @@ export function DeliveryDashboard() {
 
       {/* KPIs */}
       <div className="grid gap-4 grid-cols-2 lg:grid-cols-5">
-        <KPICard title="Shipments This Month" value={String(allShipments.length)} subtitle="Total shipments" icon={Truck} color="teal" />
+        <KPICard title="Shipments This Month" value={String(shipments.length)} subtitle="Total shipments" icon={Truck} color="teal" />
         <KPICard title="On-Time Rate" value={`${onTimeRate}%`} subtitle="Target: 95%" icon={CheckCircle} color="green" />
         <KPICard title="Pending Packing" value={String(pendingPacking)} subtitle="Orders ready to pack" icon={Package} iconColor="text-amber-500" color="orange" />
         <KPICard title="In Transit" value={String(inTransitCount)} subtitle="Active shipments" icon={Truck} iconColor="text-blue-500" color="blue" />
@@ -149,12 +153,12 @@ export function DeliveryDashboard() {
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-sm font-medium">Current Shipments</CardTitle>
-                <span className="text-xs text-muted-foreground">{allShipments.filter((s) => s.status !== "delivered").length} active</span>
+                <span className="text-xs text-muted-foreground">{shipments.filter((s) => s.status !== "delivered").length} active</span>
               </div>
             </CardHeader>
             <CardContent>
               <div className="space-y-2">
-                {allShipments.filter((s) => s.status !== "delivered").map((ship) => (
+                {shipments.filter((s) => s.status !== "delivered").map((ship) => (
                   <div key={ship.id} className="flex items-center justify-between rounded-lg border p-4 hover:bg-accent/50 transition-colors">
                     <div className="flex items-center gap-3">
                       <Truck className={cn("h-5 w-5", ship.status === "in_transit" ? "text-blue-500" : "text-amber-500")} />
@@ -239,7 +243,7 @@ export function DeliveryDashboard() {
               <CardTitle className="text-sm font-medium">All Shipments</CardTitle>
               <div className="flex items-center gap-2">
                 <ExportButtons
-                  data={allShipments.map((s) => ({ id: s.id, customer: s.customer, soId: s.soId, boards: formatNumber(s.boards), boxes: s.boxes, weight: `${s.weight} kg`, carrier: s.carrier, tracking: s.tracking ?? "Pending", status: s.status, eta: s.eta ?? "--" }))}
+                  data={shipments.map((s) => ({ id: s.id, customer: s.customer, soId: s.soId, boards: formatNumber(s.boards), boxes: s.boxes, weight: `${s.weight} kg`, carrier: s.carrier, tracking: s.tracking ?? "Pending", status: s.status, eta: s.eta ?? "--" }))}
                   columns={[
                     { key: "id", label: "Ship #" }, { key: "customer", label: "Customer" }, { key: "soId", label: "SO #" },
                     { key: "boards", label: "Boards" }, { key: "boxes", label: "Boxes" }, { key: "weight", label: "Weight" },
@@ -249,13 +253,13 @@ export function DeliveryDashboard() {
                   filename="shipments"
                   title="Shipments"
                 />
-                <span className="text-xs text-muted-foreground">{allShipments.length} shipments</span>
+                <span className="text-xs text-muted-foreground">{shipments.length} shipments</span>
               </div>
             </div>
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
-              {allShipments.map((ship) => (
+              {shipments.map((ship) => (
                 <div key={ship.id}>
                   <div
                     onClick={() => setExpandedShipment(expandedShipment === ship.id ? null : ship.id)}

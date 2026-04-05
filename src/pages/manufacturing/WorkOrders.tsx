@@ -20,35 +20,37 @@ import { StatusBadge } from "@/components/shared/StatusBadge"
 import { KPICard } from "@/components/shared/KPICard"
 import { cn, formatNumber } from "@/lib/utils"
 import { ExportButtons } from "@/components/shared/ExportButtons"
-import { workOrders } from "@/lib/mock-data"
+import { workOrders as mockWorkOrders } from "@/lib/mock-data"
+import { useApiData, transformList } from "@/lib/useApi"
 
 type TabFilter = "all" | "active" | "scheduled" | "on_hold" | "completed"
 
-const tabs: { key: TabFilter; label: string; count: number }[] = [
-  { key: "all", label: "All", count: workOrders.length },
-  { key: "active", label: "Active", count: workOrders.filter((wo) => wo.status === "active").length },
-  { key: "scheduled", label: "Scheduled", count: workOrders.filter((wo) => wo.status === "scheduled").length },
-  { key: "on_hold", label: "On Hold", count: workOrders.filter((wo) => (wo.status as string) === "on_hold").length },
-  { key: "completed", label: "Completed", count: workOrders.filter((wo) => (wo.status as string) === "completed").length },
-]
-
-const summaryKPIs = {
-  activeWOs: workOrders.filter((wo) => wo.status === "active").length,
-  avgOEE:
-    Math.round(
-      workOrders.filter((wo) => wo.oee > 0).reduce((a, b) => a + b.oee, 0) /
-        workOrders.filter((wo) => wo.oee > 0).length
-    ) || 0,
-  boardsToday: workOrders
-    .filter((wo) => wo.status === "active")
-    .reduce((a, b) => a + Math.round((b.progress / 100) * b.qty), 0),
-  onTimeCompletion: 94.2,
-}
-
 export function WorkOrders() {
+  const { data: workOrders } = useApiData("/manufacturing/work-orders", mockWorkOrders, (raw: any) => transformList(raw?.work_orders ?? [], undefined) as typeof mockWorkOrders)
   const [search, setSearch] = useState("")
   const [activeTab, setActiveTab] = useState<TabFilter>("all")
   const navigate = useNavigate()
+
+  const tabs: { key: TabFilter; label: string; count: number }[] = [
+    { key: "all", label: "All", count: workOrders.length },
+    { key: "active", label: "Active", count: workOrders.filter((wo) => wo.status === "active").length },
+    { key: "scheduled", label: "Scheduled", count: workOrders.filter((wo) => wo.status === "scheduled").length },
+    { key: "on_hold", label: "On Hold", count: workOrders.filter((wo) => (wo.status as string) === "on_hold").length },
+    { key: "completed", label: "Completed", count: workOrders.filter((wo) => (wo.status as string) === "completed").length },
+  ]
+
+  const summaryKPIs = {
+    activeWOs: workOrders.filter((wo) => wo.status === "active").length,
+    avgOEE:
+      Math.round(
+        workOrders.filter((wo) => wo.oee > 0).reduce((a, b) => a + b.oee, 0) /
+          workOrders.filter((wo) => wo.oee > 0).length
+      ) || 0,
+    boardsToday: workOrders
+      .filter((wo) => wo.status === "active")
+      .reduce((a, b) => a + Math.round((b.progress / 100) * b.qty), 0),
+    onTimeCompletion: 94.2,
+  }
 
   const filtered = workOrders.filter((wo) => {
     const matchesSearch =

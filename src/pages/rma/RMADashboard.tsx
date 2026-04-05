@@ -41,6 +41,7 @@ import { StatusBadge } from "@/components/shared/StatusBadge"
 import { KPICard } from "@/components/shared/KPICard"
 import { ExportButtons } from "@/components/shared/ExportButtons"
 import { cn } from "@/lib/utils"
+import { useApiData, transformList } from "@/lib/useApi"
 
 // ─── Tabs ───
 const tabs = [
@@ -175,22 +176,25 @@ const dispositionColors: Record<string, string> = {
 }
 
 export function RMADashboard() {
+  const { data: rmas } = useApiData("/rma/", rmaData, (raw: any) =>
+    transformList(raw?.rmas ?? [], undefined) as typeof rmaData
+  )
   const [activeTab, setActiveTab] = useState<TabId>("overview")
   const [search, setSearch] = useState("")
   const [expandedRMA, setExpandedRMA] = useState<string | null>(null)
 
-  const openCount = rmaData.filter((r) => r.status !== "shipped").length
+  const openCount = rmas.filter((r) => r.status !== "shipped").length
   const avgDays = Math.round(
-    rmaData.filter((r) => r.status !== "shipped").reduce((a, b) => a + b.daysOpen, 0) /
-    Math.max(rmaData.filter((r) => r.status !== "shipped").length, 1)
+    rmas.filter((r) => r.status !== "shipped").reduce((a, b) => a + b.daysOpen, 0) /
+    Math.max(rmas.filter((r) => r.status !== "shipped").length, 1)
   )
   const totalShipped = 6500
-  const totalReturned = rmaData.reduce((a, b) => a + b.qty, 0)
+  const totalReturned = rmas.reduce((a, b) => a + b.qty, 0)
   const returnRate = ((totalReturned / totalShipped) * 100).toFixed(2)
   const topFailure = "Solder Joint"
   const custSatisfaction = 4.2
 
-  const filtered = rmaData.filter(
+  const filtered = rmas.filter(
     (rma) =>
       rma.id.toLowerCase().includes(search.toLowerCase()) ||
       rma.customer.toLowerCase().includes(search.toLowerCase()) ||

@@ -15,6 +15,7 @@ import { StatusBadge } from "@/components/shared/StatusBadge"
 import { KPICard } from "@/components/shared/KPICard"
 import { cn } from "@/lib/utils"
 import { ExportButtons } from "@/components/shared/ExportButtons"
+import { useApiData, transformList } from "@/lib/useApi"
 
 interface NCR {
   id: string
@@ -115,17 +116,30 @@ const severityColors: Record<string, string> = {
 }
 
 export function NCRList() {
+  const { data: ncrs } = useApiData<NCR[]>("/quality/ncr", ncrData, (raw: any) =>
+    transformList<NCR>(raw?.ncrs ?? [], (item: any) => ({
+      id: item.id,
+      board: item.board,
+      detectedAt: item.detected_at ?? item.detectedAt,
+      wo: item.wo,
+      severity: item.severity,
+      defectType: item.defect_type ?? item.defectType,
+      status: item.status,
+      dateOpened: item.date_opened ?? item.dateOpened,
+      assignee: item.assignee,
+    }))
+  )
   const [search, setSearch] = useState("")
 
-  const filtered = ncrData.filter(
+  const filtered = ncrs.filter(
     (ncr) =>
       ncr.id.toLowerCase().includes(search.toLowerCase()) ||
       ncr.board.toLowerCase().includes(search.toLowerCase()) ||
       ncr.defectType.toLowerCase().includes(search.toLowerCase())
   )
 
-  const openCount = ncrData.filter((n) => n.status !== "completed").length
-  const criticalCount = ncrData.filter(
+  const openCount = ncrs.filter((n) => n.status !== "completed").length
+  const criticalCount = ncrs.filter(
     (n) => n.severity === "critical" && n.status !== "completed"
   ).length
 
@@ -141,7 +155,7 @@ export function NCRList() {
       <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
         <KPICard
           title="Total NCRs"
-          value={String(ncrData.length)}
+          value={String(ncrs.length)}
           subtitle="This month"
         />
         <KPICard

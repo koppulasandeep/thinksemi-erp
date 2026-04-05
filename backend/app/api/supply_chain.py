@@ -16,8 +16,9 @@ from app.core.sequence import next_ref
 from app.core.tenant import TenantQuery
 from app.models.user import User
 from app.models.sales_order import SalesOrder, SOLineItem, SOPaymentMilestone
-from app.models.bom import BOMItem, BOMRevision
+from app.models.bom import BOMItem, BOMRevision, BOMAlternate
 from app.models.purchase_order import PurchaseOrder, POLineItem
+from app.models.sales_order import DeliverySchedule
 from app.models.supplier import Supplier
 from app.models.inventory import InventoryItem
 
@@ -223,6 +224,311 @@ def get_bom(
              "total_cost": float(r.total_cost), "part_count": r.part_count}
             for r in revisions
         ],
+    }
+
+
+@router.post("/bom", status_code=201)
+def import_bom(
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+    tenant_id: Annotated[uuid.UUID, Depends(get_tenant_id)],
+    payload: dict = Body(...),
+):
+    """Batch import BOM items for a board revision."""
+    board_name = payload["board_name"]
+    revision = payload["revision"]
+    author = payload["author"]
+    items_data = payload["items"]
+
+    # Create revision record
+    total_cost = sum(i["qty_per_board"] * i["unit_price"] for i in items_data)
+    rev = BOMRevision(
+        tenant_id=tenant_id,
+        board_name=board_name,
+        revision=revision,
+        date=date.today(),
+        author=author,
+        changes_description=f"Initial import of revision {revision}",
+        total_cost=total_cost,
+        part_count=len(items_data),
+    )
+    db.add(rev)
+
+    # Create BOM items
+    created = []
+    for item in items_data:
+        bi = BOMItem(
+            tenant_id=tenant_id,
+            board_name=board_name,
+            revision=revision,
+            ref_designator=item["ref_designator"],
+            part_number=item["part_number"],
+            value=item["value"],
+            package=item["package"],
+            manufacturer=item["manufacturer"],
+            category=item["category"],
+            qty_per_board=item["qty_per_board"],
+            unit_price=item["unit_price"],
+            msl_level=item["msl_level"],
+        )
+        db.add(bi)
+        created.append(bi)
+
+    log_activity(db, tenant_id, current_user.id, f"Imported BOM for {board_name} rev {revision} ({len(items_data)} items)", "supply_chain", "bom", rev.id)
+    db.commit()
+    db.refresh(rev)
+    return {
+        "board_name": board_name,
+        "revision": revision,
+        "items_created": len(created),
+        "total_cost": float(rev.total_cost),
+    }
+
+
+@router.patch("/bom/{board_name}/items/{item_id}")
+def update_bom_item(
+    board_name: str,
+    item_id: uuid.UUID,
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+    tenant_id: Annotated[uuid.UUID, Depends(get_tenant_id)],
+    payload: dict = Body(...),
+):
+    """Update a single BOM item."""
+    item = TenantQuery(db, BOMItem, tenant_id).get_or_404(item_id, "BOMItem")
+    if item.board_name != board_name:
+        raise BadRequestError(f"BOM item does not belong to board '{board_name}'")
+
+    updatable = [
+        "ref_designator", "part_number", "value", "package", "manufacturer",
+        "category", "qty_per_board", "unit_price", "msl_level", "notes",
+    ]
+    for key in updatable:
+        if key in payload:
+            setattr(item, key, payload[key])
+
+    log_activity(db, tenant_id, current_user.id, f"Updated BOM item {item.ref_designator} on {board_name}", "supply_chain", "bom_item", item_id)
+    db.commit()
+    db.refresh(item)
+    return {
+        "id": str(item.id), "ref_designator": item.ref_designator,
+        "part_number": item.part_number, "value": item.value,
+        "package": item.package, "manufacturer": item.manufacturer,
+        "category": item.category, "qty_per_board": item.qty_per_board,
+        "unit_price": float(item.unit_price), "msl_level": item.msl_level,
+        "revision": item.revision,
+    }
+
+
+@router.post("/bom/{board_name}/revisions", status_code=201)
+def create_bom_revision(
+    board_name: str,
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+    tenant_id: Annotated[uuid.UUID, Depends(get_tenant_id)],
+    payload: dict = Body(...),
+):
+    """Create a new BOM revision with cost/count calculated from existing items."""
+    revision = payload["revision"]
+    author = payload["author"]
+    changes_description = payload["changes_description"]
+
+    # Calculate total_cost and part_count from existing BOM items for this board
+    items = TenantQuery(db, BOMItem, tenant_id).filter(
+        BOMItem.board_name == board_name
+    ).all()
+    total_cost = sum(float(i.unit_price) * i.qty_per_board for i in items)
+    part_count = len(items)
+
+    rev = BOMRevision(
+        tenant_id=tenant_id,
+        board_name=board_name,
+        revision=revision,
+        date=date.today(),
+        author=author,
+        changes_description=changes_description,
+        total_cost=total_cost,
+        part_count=part_count,
+    )
+    db.add(rev)
+    log_activity(db, tenant_id, current_user.id, f"Created BOM revision {revision} for {board_name}", "supply_chain", "bom_revision", rev.id)
+    db.commit()
+    db.refresh(rev)
+    return {
+        "revision": rev.revision, "date": str(rev.date), "author": rev.author,
+        "total_cost": float(rev.total_cost), "part_count": rev.part_count,
+        "changes_description": rev.changes_description,
+    }
+
+
+@router.get("/bom/{board_name}/alternates")
+def get_bom_alternates(
+    board_name: str,
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+    tenant_id: Annotated[uuid.UUID, Depends(get_tenant_id)],
+):
+    """Get alternates for all parts used in a board's BOM."""
+    part_numbers = [
+        r.part_number for r in
+        TenantQuery(db, BOMItem, tenant_id).filter(BOMItem.board_name == board_name).all()
+    ]
+    alternates = TenantQuery(db, BOMAlternate, tenant_id).filter(
+        BOMAlternate.primary_part_number.in_(part_numbers)
+    ).all()
+    return {
+        "alternates": [
+            {
+                "id": str(a.id), "primary_part_number": a.primary_part_number,
+                "alternate_part_number": a.alternate_part_number,
+                "supplier_name": a.supplier_name, "price": float(a.price),
+                "lead_time_days": a.lead_time_days, "status": a.status,
+            }
+            for a in alternates
+        ]
+    }
+
+
+@router.post("/bom/{board_name}/alternates", status_code=201)
+def create_bom_alternate(
+    board_name: str,
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+    tenant_id: Annotated[uuid.UUID, Depends(get_tenant_id)],
+    payload: dict = Body(...),
+):
+    """Create an alternate part for a BOM item."""
+    alt = BOMAlternate(
+        tenant_id=tenant_id,
+        primary_part_number=payload["primary_part_number"],
+        alternate_part_number=payload["alternate_part_number"],
+        supplier_name=payload["supplier_name"],
+        price=payload["price"],
+        lead_time_days=payload["lead_time_days"],
+        status=payload.get("status", "approved"),
+    )
+    db.add(alt)
+    log_activity(db, tenant_id, current_user.id, f"Created alternate {alt.alternate_part_number} for {alt.primary_part_number} on {board_name}", "supply_chain", "bom_alternate", alt.id)
+    db.commit()
+    db.refresh(alt)
+    return {
+        "id": str(alt.id), "primary_part_number": alt.primary_part_number,
+        "alternate_part_number": alt.alternate_part_number,
+        "supplier_name": alt.supplier_name, "price": float(alt.price),
+        "lead_time_days": alt.lead_time_days, "status": alt.status,
+    }
+
+
+@router.get("/bom/{board_name}/where-used")
+def where_used(
+    board_name: str,
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+    tenant_id: Annotated[uuid.UUID, Depends(get_tenant_id)],
+):
+    """Where-used query: find all boards that share parts with this board."""
+    # Get part numbers used in this board
+    part_numbers = [
+        r.part_number for r in
+        TenantQuery(db, BOMItem, tenant_id).filter(BOMItem.board_name == board_name).all()
+    ]
+    # For each part, find other boards that use it
+    result = []
+    for pn in set(part_numbers):
+        boards = (
+            db.query(BOMItem.board_name)
+            .filter(BOMItem.tenant_id == tenant_id, BOMItem.part_number == pn)
+            .distinct()
+            .all()
+        )
+        board_list = [b.board_name for b in boards]
+        if len(board_list) > 1 or (len(board_list) == 1 and board_list[0] != board_name):
+            result.append({"part_number": pn, "boards": board_list})
+    return {"where_used": result}
+
+
+# ─── Delivery Schedules ─────────────────────────────────────────────────
+
+@router.get("/sales-orders/{order_id}/delivery-schedule")
+def get_delivery_schedule(
+    order_id: uuid.UUID,
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+    tenant_id: Annotated[uuid.UUID, Depends(get_tenant_id)],
+):
+    TenantQuery(db, SalesOrder, tenant_id).get_or_404(order_id, "SalesOrder")
+    schedules = TenantQuery(db, DeliverySchedule, tenant_id).filter(
+        DeliverySchedule.sales_order_id == order_id
+    ).all(order_by=DeliverySchedule.scheduled_date)
+    return {
+        "delivery_schedules": [
+            {
+                "id": str(s.id), "batch_label": s.batch_label,
+                "quantity": s.quantity,
+                "scheduled_date": str(s.scheduled_date),
+                "status": s.status,
+            }
+            for s in schedules
+        ]
+    }
+
+
+@router.post("/sales-orders/{order_id}/delivery-schedule", status_code=201)
+def create_delivery_schedule(
+    order_id: uuid.UUID,
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+    tenant_id: Annotated[uuid.UUID, Depends(get_tenant_id)],
+    payload: dict = Body(...),
+):
+    so = TenantQuery(db, SalesOrder, tenant_id).get_or_404(order_id, "SalesOrder")
+    ds = DeliverySchedule(
+        tenant_id=tenant_id,
+        sales_order_id=order_id,
+        batch_label=payload["batch_label"],
+        quantity=payload["quantity"],
+        scheduled_date=payload["scheduled_date"],
+        status=payload.get("status", "scheduled"),
+    )
+    db.add(ds)
+    log_activity(db, tenant_id, current_user.id, f"Added delivery batch '{ds.batch_label}' to SO {so.ref_number}", "supply_chain", "delivery_schedule", ds.id)
+    db.commit()
+    db.refresh(ds)
+    return {
+        "id": str(ds.id), "batch_label": ds.batch_label,
+        "quantity": ds.quantity,
+        "scheduled_date": str(ds.scheduled_date),
+        "status": ds.status,
+    }
+
+
+@router.patch("/sales-orders/{order_id}/delivery-schedule/{batch_id}")
+def update_delivery_schedule(
+    order_id: uuid.UUID,
+    batch_id: uuid.UUID,
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+    tenant_id: Annotated[uuid.UUID, Depends(get_tenant_id)],
+    payload: dict = Body(...),
+):
+    TenantQuery(db, SalesOrder, tenant_id).get_or_404(order_id, "SalesOrder")
+    ds = TenantQuery(db, DeliverySchedule, tenant_id).get_or_404(batch_id, "DeliverySchedule")
+    if ds.sales_order_id != order_id:
+        raise BadRequestError("Delivery schedule does not belong to this sales order")
+
+    updatable = ["batch_label", "quantity", "scheduled_date", "status"]
+    for key in updatable:
+        if key in payload:
+            setattr(ds, key, payload[key])
+
+    log_activity(db, tenant_id, current_user.id, f"Updated delivery batch '{ds.batch_label}'", "supply_chain", "delivery_schedule", batch_id)
+    db.commit()
+    db.refresh(ds)
+    return {
+        "id": str(ds.id), "batch_label": ds.batch_label,
+        "quantity": ds.quantity,
+        "scheduled_date": str(ds.scheduled_date),
+        "status": ds.status,
     }
 
 

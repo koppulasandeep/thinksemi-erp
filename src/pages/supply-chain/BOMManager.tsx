@@ -24,6 +24,7 @@ import { StatusBadge } from "@/components/shared/StatusBadge"
 import { cn, formatCurrency, formatNumber } from "@/lib/utils"
 import { ExportButtons } from "@/components/shared/ExportButtons"
 import { bomItems, bomWhereUsed, bomRevisions, bomAlternates } from "@/lib/mock-data"
+import { useApiData, snakeToCamel } from "@/lib/useApi"
 import {
   PieChart as RePieChart,
   Pie,
@@ -75,12 +76,48 @@ const categoryMap: Record<string, string> = {
 }
 
 export function BOMManager() {
+  // BOM items from API — bomWhereUsed and bomAlternates have no backend endpoint yet
+  const { data: items } = useApiData(
+    "/supply-chain/bom",
+    bomItems,
+    (raw: any) => {
+      const arr = raw?.items ?? raw
+      if (!Array.isArray(arr)) return bomItems
+      return arr.map((item: any) => {
+        const c = snakeToCamel(item)
+        return {
+          ref: c.refDesignator ?? c.ref ?? "",
+          partNumber: c.partNumber ?? "",
+          value: c.value ?? "",
+          package: c.package ?? "",
+          manufacturer: c.manufacturer ?? "",
+          category: c.category ?? "",
+          qtyPerBoard: c.qtyPerBoard ?? 0,
+          stock: c.stock ?? 0,
+          price: c.unitPrice ?? c.price ?? 0,
+          alternates: c.alternates ?? 0,
+          msl: c.msl ?? 1,
+        }
+      }) as typeof bomItems
+    }
+  )
+
+  const { data: revisions } = useApiData(
+    "/supply-chain/bom/ECU-X500",
+    bomRevisions,
+    (raw: any) => {
+      const arr = raw?.revisions ?? raw
+      if (!Array.isArray(arr)) return bomRevisions
+      return arr.map((r: any) => snakeToCamel(r)) as typeof bomRevisions
+    }
+  )
+
   const [search, setSearch] = useState("")
   const [activeTab, setActiveTab] = useState<BOMTab>("items")
   const [availabilityChecked, setAvailabilityChecked] = useState(false)
   const [whereUsedSearch, setWhereUsedSearch] = useState("")
 
-  const filtered = bomItems.filter(
+  const filtered = items.filter(
     (item) =>
       item.ref.toLowerCase().includes(search.toLowerCase()) ||
       item.partNumber.toLowerCase().includes(search.toLowerCase()) ||
@@ -96,7 +133,7 @@ export function BOMManager() {
   // Cost analysis data
   const costByCategory = useMemo(() => {
     const map: Record<string, number> = {}
-    for (const item of bomItems) {
+    for (const item of items) {
       const cat = item.category
       map[cat] = (map[cat] || 0) + item.price * item.qtyPerBoard
     }
@@ -107,7 +144,7 @@ export function BOMManager() {
     }))
   }, [])
 
-  const costTrend = bomRevisions
+  const costTrend = revisions
     .slice()
     .reverse()
     .map((r) => ({ rev: r.rev, cost: r.totalCost, parts: r.partCount }))
@@ -385,7 +422,7 @@ export function BOMManager() {
         <Card className="p-4 space-y-4">
           <h3 className="text-sm font-semibold">ECU-X500 BOM Revision History</h3>
           <div className="space-y-3">
-            {bomRevisions.map((rev, idx) => (
+            {revisions.map((rev, idx) => (
               <div
                 key={rev.rev}
                 className={cn(
@@ -412,12 +449,12 @@ export function BOMManager() {
                 <div className="flex items-center gap-4 text-xs text-muted-foreground">
                   <span>Parts: <span className="font-medium text-foreground">{rev.partCount}</span></span>
                   <span>BOM Cost: <span className="font-medium text-foreground">{formatCurrency(rev.totalCost)}</span></span>
-                  {idx < bomRevisions.length - 1 && (
+                  {idx < revisions.length - 1 && (
                     <span>
                       Cost change:{" "}
-                      <span className={cn("font-medium", rev.totalCost > bomRevisions[idx + 1].totalCost ? "text-red-600" : "text-emerald-600")}>
-                        {rev.totalCost > bomRevisions[idx + 1].totalCost ? "+" : ""}
-                        {formatCurrency(rev.totalCost - bomRevisions[idx + 1].totalCost)}
+                      <span className={cn("font-medium", rev.totalCost > revisions[idx + 1].totalCost ? "text-red-600" : "text-emerald-600")}>
+                        {rev.totalCost > revisions[idx + 1].totalCost ? "+" : ""}
+                        {formatCurrency(rev.totalCost - revisions[idx + 1].totalCost)}
                       </span>
                     </span>
                   )}
@@ -500,7 +537,7 @@ export function BOMManager() {
                   </tr>
                 </thead>
                 <tbody>
-                  {[...bomItems]
+                  {[...items]
                     .sort((a, b) => b.price * b.qtyPerBoard - a.price * a.qtyPerBoard)
                     .slice(0, 8)
                     .map((item) => {

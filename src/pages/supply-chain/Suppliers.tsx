@@ -20,6 +20,7 @@ import { Separator } from "@/components/ui/separator"
 import { PageHeader } from "@/components/shared/PageHeader"
 import { cn, formatCurrency } from "@/lib/utils"
 import { suppliers } from "@/lib/mock-data"
+import { useApiData, snakeToCamel } from "@/lib/useApi"
 
 const categoryColors: Record<string, string> = {
   Components: "bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-400",
@@ -71,11 +72,21 @@ function ScoreBar({ label, value, threshold = 90 }: { label: string; value: numb
 }
 
 export function Suppliers() {
+  const { data: suppliersData } = useApiData(
+    "/supply-chain/suppliers",
+    suppliers,
+    (raw: any) => {
+      const arr = raw?.suppliers ?? raw
+      if (!Array.isArray(arr)) return suppliers
+      return arr.map((s: any) => snakeToCamel(s)) as typeof suppliers
+    }
+  )
+
   const [search, setSearch] = useState("")
   const [categoryFilter, setCategoryFilter] = useState<string>("all")
   const [expandedSupplier, setExpandedSupplier] = useState<string | null>(null)
 
-  const filtered = suppliers.filter((s) => {
+  const filtered = suppliersData.filter((s) => {
     const matchesSearch =
       s.name.toLowerCase().includes(search.toLowerCase()) ||
       s.location.toLowerCase().includes(search.toLowerCase()) ||
@@ -117,8 +128,8 @@ export function Suppliers() {
               )}
             >
               {cat === "all"
-                ? suppliers.length
-                : suppliers.filter((s) => s.category === cat).length}
+                ? suppliersData.length
+                : suppliersData.filter((s) => s.category === cat).length}
             </span>
           </button>
         ))}

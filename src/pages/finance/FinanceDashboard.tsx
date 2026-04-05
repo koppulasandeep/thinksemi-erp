@@ -27,6 +27,7 @@ import { StatusBadge } from "@/components/shared/StatusBadge"
 import { ExportButtons, type ExportColumn } from "@/components/shared/ExportButtons"
 import { cn, formatCurrency } from "@/lib/utils"
 import { customerInvoices, vendorBills, payrollBatches } from "@/lib/mock-data"
+import { useApiData, transformList } from "@/lib/useApi"
 import {
   BarChart,
   Bar,
@@ -142,9 +143,13 @@ export function FinanceDashboard() {
 // OVERVIEW TAB
 // ══════════════════════════════════════════════════════════════════════════════
 function OverviewTab() {
-  const totalReceivables = customerInvoices.reduce((s, i) => s + i.balance, 0)
-  const totalPayables = vendorBills.reduce((s, b) => s + b.balance, 0)
-  const pendingPayroll = payrollBatches.find((p) => p.status === "pending_approval")
+  const { data: invoices } = useApiData("/finance/invoices", customerInvoices, (raw: any) => transformList(raw?.invoices ?? [], undefined) as typeof customerInvoices)
+  const { data: bills } = useApiData("/finance/vendor-bills", vendorBills, (raw: any) => transformList(raw?.vendor_bills ?? [], undefined) as typeof vendorBills)
+  const { data: payroll } = useApiData("/finance/payroll-approval", payrollBatches, (raw: any) => transformList(raw?.pending_batches ?? [], undefined) as typeof payrollBatches)
+
+  const totalReceivables = invoices.reduce((s, i) => s + i.balance, 0)
+  const totalPayables = bills.reduce((s, b) => s + b.balance, 0)
+  const pendingPayroll = payroll.find((p) => p.status === "pending_approval")
 
   return (
     <div className="space-y-6">
@@ -169,14 +174,14 @@ function OverviewTab() {
         <KPICard
           title="Outstanding Receivables"
           value={formatCurrency(totalReceivables)}
-          subtitle={`${customerInvoices.filter((i) => i.status === "overdue").length} overdue`}
+          subtitle={`${invoices.filter((i) => i.status === "overdue").length} overdue`}
           icon={Receipt}
           color="blue"
         />
         <KPICard
           title="Outstanding Payables"
           value={formatCurrency(totalPayables)}
-          subtitle={`${vendorBills.filter((b) => b.status === "overdue").length} overdue`}
+          subtitle={`${bills.filter((b) => b.status === "overdue").length} overdue`}
           icon={Banknote}
           color="orange"
         />
@@ -262,6 +267,7 @@ function OverviewTab() {
 // CUSTOMER PAYMENTS TAB
 // ══════════════════════════════════════════════════════════════════════════════
 function CustomerPaymentsTab() {
+  const { data: invoiceData } = useApiData("/finance/invoices", customerInvoices, (raw: any) => transformList(raw?.invoices ?? [], undefined) as typeof customerInvoices)
   const [recordingId, setRecordingId] = useState<string | null>(null)
   const [paymentForm, setPaymentForm] = useState({
     amount: "",
@@ -271,10 +277,10 @@ function CustomerPaymentsTab() {
   })
 
   const aging = {
-    "0-30": customerInvoices.filter((i) => i.agingDays >= 0 && i.agingDays <= 30).reduce((s, i) => s + i.balance, 0),
-    "30-60": customerInvoices.filter((i) => i.agingDays > 30 && i.agingDays <= 60).reduce((s, i) => s + i.balance, 0),
-    "60-90": customerInvoices.filter((i) => i.agingDays > 60 && i.agingDays <= 90).reduce((s, i) => s + i.balance, 0),
-    "90+": customerInvoices.filter((i) => i.agingDays > 90).reduce((s, i) => s + i.balance, 0),
+    "0-30": invoiceData.filter((i) => i.agingDays >= 0 && i.agingDays <= 30).reduce((s, i) => s + i.balance, 0),
+    "30-60": invoiceData.filter((i) => i.agingDays > 30 && i.agingDays <= 60).reduce((s, i) => s + i.balance, 0),
+    "60-90": invoiceData.filter((i) => i.agingDays > 60 && i.agingDays <= 90).reduce((s, i) => s + i.balance, 0),
+    "90+": invoiceData.filter((i) => i.agingDays > 90).reduce((s, i) => s + i.balance, 0),
   }
 
   const exportColumns: ExportColumn[] = [
@@ -315,7 +321,7 @@ function CustomerPaymentsTab() {
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="text-base">Customer Invoices</CardTitle>
           <ExportButtons
-            data={customerInvoices as unknown as Record<string, unknown>[]}
+            data={invoiceData as unknown as Record<string, unknown>[]}
             columns={exportColumns}
             filename="customer-invoices"
             title="Customer Invoices"
@@ -339,7 +345,7 @@ function CustomerPaymentsTab() {
                 </tr>
               </thead>
               <tbody>
-                {customerInvoices.map((inv) => (
+                {invoiceData.map((inv) => (
                   <tr key={inv.invoiceNo} className="border-b last:border-0 hover:bg-muted/30">
                     <td className="py-2.5 px-3 font-mono text-xs">{inv.invoiceNo}</td>
                     <td className="py-2.5 px-3 font-medium">{inv.customer}</td>
@@ -481,15 +487,16 @@ function CustomerPaymentsTab() {
 // VENDOR PAYMENTS TAB
 // ══════════════════════════════════════════════════════════════════════════════
 function VendorPaymentsTab() {
+  const { data: billsData } = useApiData("/finance/vendor-bills", vendorBills, (raw: any) => transformList(raw?.vendor_bills ?? [], undefined) as typeof vendorBills)
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [schedulingId, setSchedulingId] = useState<string | null>(null)
   const [scheduleDate, setScheduleDate] = useState("")
 
   const aging = {
-    "0-30": vendorBills.filter((b) => b.agingDays >= 0 && b.agingDays <= 30).reduce((s, b) => s + b.balance, 0),
-    "30-60": vendorBills.filter((b) => b.agingDays > 30 && b.agingDays <= 60).reduce((s, b) => s + b.balance, 0),
-    "60-90": vendorBills.filter((b) => b.agingDays > 60 && b.agingDays <= 90).reduce((s, b) => s + b.balance, 0),
-    "90+": vendorBills.filter((b) => b.agingDays > 90).reduce((s, b) => s + b.balance, 0),
+    "0-30": billsData.filter((b) => b.agingDays >= 0 && b.agingDays <= 30).reduce((s, b) => s + b.balance, 0),
+    "30-60": billsData.filter((b) => b.agingDays > 30 && b.agingDays <= 60).reduce((s, b) => s + b.balance, 0),
+    "60-90": billsData.filter((b) => b.agingDays > 60 && b.agingDays <= 90).reduce((s, b) => s + b.balance, 0),
+    "90+": billsData.filter((b) => b.agingDays > 90).reduce((s, b) => s + b.balance, 0),
   }
 
   const toggleSelect = (id: string) => {
@@ -502,7 +509,7 @@ function VendorPaymentsTab() {
   }
 
   const toggleAll = () => {
-    const unpaid = vendorBills.filter((b) => b.status !== "paid")
+    const unpaid = billsData.filter((b) => b.status !== "paid")
     if (selected.size === unpaid.length) {
       setSelected(new Set())
     } else {
@@ -552,7 +559,7 @@ function VendorPaymentsTab() {
           </span>
           <span className="text-sm text-muted-foreground">
             Total: {formatCurrency(
-              vendorBills
+              billsData
                 .filter((b) => selected.has(b.billNo))
                 .reduce((s, b) => s + b.balance, 0)
             )}
@@ -569,7 +576,7 @@ function VendorPaymentsTab() {
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="text-base">Vendor Bills</CardTitle>
           <ExportButtons
-            data={vendorBills as unknown as Record<string, unknown>[]}
+            data={billsData as unknown as Record<string, unknown>[]}
             columns={exportColumns}
             filename="vendor-bills"
             title="Vendor Bills"
@@ -583,7 +590,7 @@ function VendorPaymentsTab() {
                   <th className="text-left py-2 px-3 font-medium">
                     <input
                       type="checkbox"
-                      checked={selected.size === vendorBills.filter((b) => b.status !== "paid").length && selected.size > 0}
+                      checked={selected.size === billsData.filter((b) => b.status !== "paid").length && selected.size > 0}
                       onChange={toggleAll}
                       className="rounded"
                     />
@@ -601,7 +608,7 @@ function VendorPaymentsTab() {
                 </tr>
               </thead>
               <tbody>
-                {vendorBills.map((bill) => (
+                {billsData.map((bill) => (
                   <tr key={bill.billNo} className="border-b last:border-0 hover:bg-muted/30">
                     <td className="py-2.5 px-3">
                       {bill.status !== "paid" && (
@@ -692,6 +699,7 @@ function VendorPaymentsTab() {
 // PAYROLL APPROVAL TAB
 // ══════════════════════════════════════════════════════════════════════════════
 function PayrollApprovalTab() {
+  const { data: payrollData } = useApiData("/finance/payroll-approval", payrollBatches, (raw: any) => transformList(raw?.pending_batches ?? [], undefined) as typeof payrollBatches)
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [rejectReason, setRejectReason] = useState("")
   const [showRejectForm, setShowRejectForm] = useState<string | null>(null)
@@ -720,7 +728,7 @@ function PayrollApprovalTab() {
                 </tr>
               </thead>
               <tbody>
-                {payrollBatches.map((batch) => (
+                {payrollData.map((batch) => (
                   <tr key={batch.id} className="border-b last:border-0 hover:bg-muted/30">
                     <td className="py-2.5 px-3 font-medium">{batch.month}</td>
                     <td className="py-2.5 px-3 text-right tabular-nums">{batch.totalEmployees}</td>
@@ -780,7 +788,7 @@ function PayrollApprovalTab() {
               <Separator className="my-4" />
               <div className="bg-red-50 dark:bg-red-950/20 rounded-lg p-4 space-y-3">
                 <p className="text-sm font-medium text-red-700 dark:text-red-400">
-                  Reject Payroll - {payrollBatches.find((b) => b.id === showRejectForm)?.month}
+                  Reject Payroll - {payrollData.find((b) => b.id === showRejectForm)?.month}
                 </p>
                 <Input
                   placeholder="Reason for rejection..."
@@ -813,7 +821,7 @@ function PayrollApprovalTab() {
               <div className="space-y-3">
                 <p className="text-sm font-medium">
                   Employee Breakdown -{" "}
-                  {payrollBatches.find((b) => b.id === expandedId)?.month}
+                  {payrollData.find((b) => b.id === expandedId)?.month}
                 </p>
                 <div className="overflow-x-auto">
                   <table className="w-full text-xs">
@@ -832,7 +840,7 @@ function PayrollApprovalTab() {
                       </tr>
                     </thead>
                     <tbody>
-                      {payrollBatches
+                      {payrollData
                         .find((b) => b.id === expandedId)
                         ?.employees.map((emp, idx) => (
                           <tr
@@ -897,6 +905,8 @@ function PayrollApprovalTab() {
 // REPORTS TAB
 // ══════════════════════════════════════════════════════════════════════════════
 function ReportsTab() {
+  const { data: reportInvoices } = useApiData("/finance/invoices", customerInvoices, (raw: any) => transformList(raw?.invoices ?? [], undefined) as typeof customerInvoices)
+  const { data: reportBills } = useApiData("/finance/vendor-bills", vendorBills, (raw: any) => transformList(raw?.vendor_bills ?? [], undefined) as typeof vendorBills)
   const [activeReport, setActiveReport] = useState<string>("receivables_aging")
 
   const reports = [
@@ -919,7 +929,7 @@ function ReportsTab() {
 
   // Aggregate receivables by customer
   const receivablesAging = Object.values(
-    customerInvoices.reduce<
+    reportInvoices.reduce<
       Record<string, { customer: string; bucket0_30: number; bucket30_60: number; bucket60_90: number; bucket90plus: number; total: number }>
     >((acc, inv) => {
       if (!acc[inv.customer]) {
@@ -945,7 +955,7 @@ function ReportsTab() {
   ]
 
   const payablesAging = Object.values(
-    vendorBills.reduce<
+    reportBills.reduce<
       Record<string, { supplier: string; bucket0_30: number; bucket30_60: number; bucket60_90: number; bucket90plus: number; total: number }>
     >((acc, bill) => {
       if (!acc[bill.supplier]) {

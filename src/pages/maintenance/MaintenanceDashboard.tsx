@@ -24,6 +24,7 @@ import { StatusBadge } from "@/components/shared/StatusBadge"
 import { KPICard } from "@/components/shared/KPICard"
 import { ExportButtons } from "@/components/shared/ExportButtons"
 import { cn } from "@/lib/utils"
+import { useApiData, transformList } from "@/lib/useApi"
 
 // ─── Tabs ───
 const tabs = [
@@ -126,15 +127,18 @@ const typeColorMap: Record<string, string> = {
 }
 
 export function MaintenanceDashboard() {
+  const { data: equipment } = useApiData("/maintenance/equipment", equipmentList, (raw: any) =>
+    transformList(raw?.equipment ?? [], undefined) as typeof equipmentList
+  )
   const [activeTab, setActiveTab] = useState<TabId>("equipment")
   const [expandedEquipment, setExpandedEquipment] = useState<string | null>(null)
 
   // KPI calculations
-  const operationalCount = equipmentList.filter((e) => e.status === "operational").length
-  const downCount = equipmentList.filter((e) => e.status === "down").length
+  const operationalCount = equipment.filter((e) => e.status === "operational").length
+  const downCount = equipment.filter((e) => e.status === "down").length
   const overduePMs = pmSchedule.filter((p) => p.status === "overdue").length
   const calDue = calibrationItems.filter((c) => c.status === "due" || c.status === "overdue").length
-  const uptimePct = ((operationalCount / equipmentList.length) * 100).toFixed(1)
+  const uptimePct = ((operationalCount / equipment.length) * 100).toFixed(1)
   const mtbfHours = 720 // mock: avg hours between failures
 
   return (
@@ -147,11 +151,11 @@ export function MaintenanceDashboard() {
 
       {/* KPIs */}
       <div className="grid gap-4 grid-cols-2 lg:grid-cols-5">
-        <KPICard title="Equipment Count" value={String(equipmentList.length)} subtitle={`${downCount} down`} icon={Gauge} color="teal" />
+        <KPICard title="Equipment Count" value={String(equipment.length)} subtitle={`${downCount} down`} icon={Gauge} color="teal" />
         <KPICard title="Overdue PMs" value={String(overduePMs)} subtitle="Requires attention" icon={AlertTriangle} iconColor="text-red-500" color="orange" />
         <KPICard title="Calibration Due" value={String(calDue)} subtitle="Due or overdue" icon={Shield} iconColor="text-amber-500" color="purple" />
         <KPICard title="MTBF" value={`${mtbfHours} hrs`} subtitle="Mean time between failures" icon={Timer} color="blue" />
-        <KPICard title="Equipment Uptime" value={`${uptimePct}%`} subtitle={`${operationalCount}/${equipmentList.length} operational`} icon={Activity} color="green" />
+        <KPICard title="Equipment Uptime" value={`${uptimePct}%`} subtitle={`${operationalCount}/${equipment.length} operational`} icon={Activity} color="green" />
       </div>
 
       {/* Tabs */}
@@ -184,7 +188,7 @@ export function MaintenanceDashboard() {
               <CardTitle className="text-sm font-medium">Equipment Master List</CardTitle>
               <div className="flex items-center gap-2">
                 <ExportButtons
-                  data={equipmentList.map((eq) => ({ id: eq.id, name: eq.name, type: eq.type, serial: eq.serial, manufacturer: eq.manufacturer, installDate: eq.installDate, status: eq.status, location: eq.location, usageHours: `${eq.usageHours.toLocaleString()} hrs` }))}
+                  data={equipment.map((eq) => ({ id: eq.id, name: eq.name, type: eq.type, serial: eq.serial, manufacturer: eq.manufacturer, installDate: eq.installDate, status: eq.status, location: eq.location, usageHours: `${eq.usageHours.toLocaleString()} hrs` }))}
                   columns={[
                     { key: "id", label: "ID" }, { key: "name", label: "Name" }, { key: "type", label: "Type" },
                     { key: "serial", label: "Serial #" }, { key: "manufacturer", label: "Manufacturer" },
@@ -204,7 +208,7 @@ export function MaintenanceDashboard() {
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
-              {equipmentList.map((eq) => (
+              {equipment.map((eq) => (
                 <div key={eq.id}>
                   <div
                     onClick={() => setExpandedEquipment(expandedEquipment === eq.id ? null : eq.id)}

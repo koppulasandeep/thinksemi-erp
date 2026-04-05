@@ -1,13 +1,15 @@
-"""Seed demo data matching the frontend mock data."""
+"""Seed comprehensive demo data for Thinksemi PCB Assembly ERP."""
 
 import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from datetime import date, datetime, timedelta
+from decimal import Decimal
 from passlib.context import CryptContext
 from sqlalchemy.orm import Session
 
-from app.core.database import SessionLocal, engine, Base
+from app.core.database import SessionLocal
 from app.models import *  # noqa
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -44,75 +46,251 @@ USERS = [
 def seed():
     db: Session = SessionLocal()
     try:
-        # Check if already seeded
         existing = db.query(Tenant).filter(Tenant.slug == "thinksemi").first()
         if existing:
             print("Database already seeded. Skipping.")
             return
 
-        # Create tenant
+        # --- Tenant + Users ---
         tenant = Tenant(**TENANT_DATA)
         db.add(tenant)
         db.flush()
-        print(f"Created tenant: {tenant.name} (id={tenant.id})")
+        tid = tenant.id
+        print(f"Created tenant: {tenant.name} (id={tid})")
 
-        # Create users
         for u in USERS:
-            user = User(
-                tenant_id=tenant.id,
-                email=u["email"],
-                password_hash=pwd_context.hash(u["password"]),
-                full_name=u["full_name"],
-                role=u["role"],
-                designation=u["designation"],
-            )
-            db.add(user)
+            db.add(User(tenant_id=tid, email=u["email"], password_hash=pwd_context.hash(u["password"]),
+                        full_name=u["full_name"], role=u["role"], designation=u["designation"]))
             print(f"  Created user: {u['email']} ({u['role']})")
-
         db.flush()
 
-        # Create payroll config
-        config = PayrollConfig(tenant_id=tenant.id)
-        db.add(config)
+        db.add(PayrollConfig(tenant_id=tid))
 
-        # Create some suppliers
-        suppliers_data = [
-            {"name": "Mouser Electronics", "location": "USA", "category": "components", "payment_terms": "net_30", "rating": 4.5},
-            {"name": "Digi-Key", "location": "USA", "category": "components", "payment_terms": "net_30", "rating": 4.3},
-            {"name": "Arrow Electronics", "location": "USA", "category": "components", "payment_terms": "net_60", "rating": 4.0},
-            {"name": "Element14", "location": "Singapore", "category": "components", "payment_terms": "net_30", "rating": 4.2},
-            {"name": "PCB Power", "location": "India", "category": "pcb", "payment_terms": "advance", "rating": 3.8},
-            {"name": "SRM Circuits", "location": "India", "category": "pcb", "payment_terms": "net_30", "rating": 4.0},
-        ]
-        for s in suppliers_data:
-            db.add(Supplier(tenant_id=tenant.id, **s))
+        # --- Suppliers ---
+        suppliers = []
+        for s in [
+            {"name": "Mouser Electronics", "location": "USA", "category": "components", "payment_terms": "net_30", "rating": 4.5, "on_time_delivery": 96.5, "quality_score": 98.2},
+            {"name": "Digi-Key", "location": "USA", "category": "components", "payment_terms": "net_30", "rating": 4.3, "on_time_delivery": 94.0, "quality_score": 97.5},
+            {"name": "Arrow Electronics", "location": "USA", "category": "components", "payment_terms": "net_60", "rating": 4.0, "on_time_delivery": 91.0, "quality_score": 96.0},
+            {"name": "Element14", "location": "Singapore", "category": "components", "payment_terms": "net_30", "rating": 4.2, "on_time_delivery": 93.5, "quality_score": 97.0},
+            {"name": "PCB Power", "location": "India", "category": "pcb", "payment_terms": "advance", "rating": 3.8, "on_time_delivery": 85.0, "quality_score": 92.0},
+            {"name": "SRM Circuits", "location": "India", "category": "pcb", "payment_terms": "net_30", "rating": 4.0, "on_time_delivery": 88.0, "quality_score": 94.0},
+        ]:
+            sup = Supplier(tenant_id=tid, **s)
+            db.add(sup)
+            suppliers.append(sup)
+        db.flush()
 
-        # Create production lines
-        lines_data = [
-            {"name": "SMT Line 1", "line_type": "smt", "status": "running"},
-            {"name": "SMT Line 2", "line_type": "smt", "status": "idle"},
-            {"name": "THT Line 1", "line_type": "tht", "status": "running"},
-        ]
-        for l in lines_data:
-            db.add(ProductionLine(tenant_id=tenant.id, **l))
+        # --- Production Lines ---
+        lines = []
+        for l in [
+            {"name": "SMT Line 1", "line_type": "smt", "status": "running", "oee": 87.5},
+            {"name": "SMT Line 2", "line_type": "smt", "status": "idle", "oee": 0.0},
+            {"name": "THT Line 1", "line_type": "tht", "status": "running", "oee": 82.0},
+        ]:
+            line = ProductionLine(tenant_id=tid, **l)
+            db.add(line)
+            lines.append(line)
+        db.flush()
 
-        # Create equipment
-        equip_data = [
-            {"name": "Reflow Oven 1", "equipment_type": "reflow", "status": "overdue", "next_pm_date": "2026-03-25", "usage_hours": 1240},
-            {"name": "Pick & Place 1", "equipment_type": "pick_place", "status": "due", "next_pm_date": "2026-04-01", "usage_hours": 890},
-            {"name": "AOI-1", "equipment_type": "aoi", "status": "due", "next_pm_date": "2026-04-02", "usage_hours": 450},
-            {"name": "SPI-1", "equipment_type": "spi", "status": "ok", "next_pm_date": "2026-04-15", "usage_hours": 200},
-            {"name": "ICT-1", "equipment_type": "ict", "status": "ok", "next_pm_date": "2026-05-01", "usage_hours": 120},
+        # --- Equipment ---
+        for e in [
+            {"name": "Reflow Oven 1", "equipment_type": "reflow", "status": "overdue", "next_pm_date": date(2026, 3, 25), "usage_hours": 1240},
+            {"name": "Pick & Place 1", "equipment_type": "pick_place", "status": "due", "next_pm_date": date(2026, 4, 1), "usage_hours": 890},
+            {"name": "AOI-1", "equipment_type": "aoi", "status": "due", "next_pm_date": date(2026, 4, 2), "usage_hours": 450},
+            {"name": "SPI-1", "equipment_type": "spi", "status": "ok", "next_pm_date": date(2026, 4, 15), "usage_hours": 200},
+            {"name": "ICT-1", "equipment_type": "ict", "status": "ok", "next_pm_date": date(2026, 5, 1), "usage_hours": 120},
+        ]:
+            db.add(Equipment(tenant_id=tid, **e))
+
+        # --- CRM Leads ---
+        crm_leads = [
+            {"ref_number": "LEAD-001", "company": "Bosch India", "contact_person": "Rahul Menon", "email": "rahul.menon@bosch.com", "phone": "+91-9876543210", "product": "ECU-X500", "value": 4500000, "stage": "won", "probability": 100, "source": "referral"},
+            {"ref_number": "LEAD-002", "company": "Continental AG", "contact_person": "Markus Weber", "email": "m.weber@continental.com", "phone": "+49-123456789", "product": "ADAS-PRO", "value": 3200000, "stage": "negotiation", "probability": 70, "source": "trade_show"},
+            {"ref_number": "LEAD-003", "company": "Tata Elxsi", "contact_person": "Priya Nair", "email": "priya.n@tataelxsi.com", "phone": "+91-9123456789", "product": "IoT-GW-100", "value": 1800000, "stage": "quoted", "probability": 50, "source": "website"},
+            {"ref_number": "LEAD-004", "company": "L&T Technology", "contact_person": "Vikram Shah", "email": "v.shah@ltts.com", "phone": "+91-9234567890", "product": "PWR-CTRL-200", "value": 2500000, "stage": "qualified", "probability": 30, "source": "cold_call"},
+            {"ref_number": "LEAD-005", "company": "Mahindra Electric", "contact_person": "Ananya Reddy", "email": "a.reddy@mahindra.com", "phone": "+91-9345678901", "product": "BMS-EV-50", "value": 5200000, "stage": "new_lead", "probability": 10, "source": "referral"},
+            {"ref_number": "LEAD-006", "company": "TVS Electronics", "contact_person": "Karthik S", "email": "karthik@tvs-e.com", "phone": "+91-9456789012", "product": "SENSOR-HUB", "value": 980000, "stage": "won", "probability": 100, "source": "website"},
+            {"ref_number": "LEAD-007", "company": "Wipro DOP", "contact_person": "Suresh Kumar", "email": "suresh.k@wipro.com", "phone": "+91-9567890123", "product": "DISPLAY-CTRL", "value": 1500000, "stage": "lost", "probability": 0, "source": "trade_show"},
         ]
-        from datetime import date
-        for e in equip_data:
-            pm = e.pop("next_pm_date")
-            hours = e.pop("usage_hours")
-            db.add(Equipment(tenant_id=tenant.id, next_pm_date=date.fromisoformat(pm), usage_hours=hours, **e))
+        for lead in crm_leads:
+            db.add(CRMLead(tenant_id=tid, **lead))
+
+        # --- Sales Orders with Line Items + Payment Milestones ---
+        today = date.today()
+        so_data = [
+            {"ref_number": "SO-001", "customer_name": "Bosch India", "board_name": "ECU-X500", "quantity": 5000, "unit_price": 450, "status": "production", "priority": "high", "payment_status": "partial"},
+            {"ref_number": "SO-002", "customer_name": "Continental AG", "board_name": "ADAS-PRO", "quantity": 2000, "unit_price": 800, "status": "confirmed", "priority": "high", "payment_status": "pending"},
+            {"ref_number": "SO-003", "customer_name": "Tata Elxsi", "board_name": "IoT-GW-100", "quantity": 10000, "unit_price": 120, "status": "material_pending", "priority": "medium", "payment_status": "pending"},
+            {"ref_number": "SO-004", "customer_name": "TVS Electronics", "board_name": "SENSOR-HUB", "quantity": 3000, "unit_price": 280, "status": "shipped", "priority": "medium", "payment_status": "paid"},
+            {"ref_number": "SO-005", "customer_name": "Bosch India", "board_name": "ECU-X500 Rev B", "quantity": 2000, "unit_price": 470, "status": "draft", "priority": "low", "payment_status": "pending"},
+        ]
+        for so in so_data:
+            total = so["quantity"] * so["unit_price"]
+            order = SalesOrder(
+                tenant_id=tid, ref_number=so["ref_number"], customer_name=so["customer_name"],
+                board_name=so["board_name"], quantity=so["quantity"], unit_price=so["unit_price"],
+                total_value=total, due_date=today + timedelta(days=30), priority=so["priority"],
+                status=so["status"], payment_status=so["payment_status"],
+            )
+            db.add(order)
+            db.flush()
+            # Line items
+            db.add(SOLineItem(tenant_id=tid, sales_order_id=order.id, description=f"PCB Assembly - {so['board_name']}", quantity=so["quantity"], unit_price=so["unit_price"], total=total))
+            # Payment milestones
+            for pct, label in [(50, "Advance"), (30, "On Delivery"), (20, "Net 30")]:
+                db.add(SOPaymentMilestone(
+                    tenant_id=tid, sales_order_id=order.id, label=label,
+                    percentage=pct, amount=total * pct / 100,
+                    due_date=today + timedelta(days=15 * (pct // 20)),
+                    status="paid" if so["payment_status"] == "paid" else "pending",
+                ))
+
+        # --- BOM Items ---
+        bom_items = [
+            {"board_name": "ECU-X500", "revision": "A", "ref_designator": "U1", "part_number": "STM32F407VGT6", "value": "MCU", "package": "LQFP-100", "manufacturer": "STMicroelectronics", "category": "ics", "qty_per_board": 1, "unit_price": 12.50, "msl_level": 3},
+            {"board_name": "ECU-X500", "revision": "A", "ref_designator": "U2", "part_number": "TJA1050T", "value": "CAN Transceiver", "package": "SO-8", "manufacturer": "NXP", "category": "ics", "qty_per_board": 2, "unit_price": 1.80, "msl_level": 1},
+            {"board_name": "ECU-X500", "revision": "A", "ref_designator": "R1-R20", "part_number": "RC0402JR-07100KL", "value": "100K", "package": "0402", "manufacturer": "Yageo", "category": "passives", "qty_per_board": 20, "unit_price": 0.005, "msl_level": 1},
+            {"board_name": "ECU-X500", "revision": "A", "ref_designator": "C1-C15", "part_number": "GRM155R71C104KA88D", "value": "100nF", "package": "0402", "manufacturer": "Murata", "category": "passives", "qty_per_board": 15, "unit_price": 0.008, "msl_level": 1},
+            {"board_name": "ECU-X500", "revision": "A", "ref_designator": "J1", "part_number": "5-534206-4", "value": "34-pin Connector", "package": "THT", "manufacturer": "TE Connectivity", "category": "connectors", "qty_per_board": 1, "unit_price": 2.40, "msl_level": 1},
+            {"board_name": "ECU-X500", "revision": "A", "ref_designator": "U3", "part_number": "LM2596S-5.0", "value": "5V Regulator", "package": "TO-263", "manufacturer": "TI", "category": "ics", "qty_per_board": 1, "unit_price": 1.95, "msl_level": 3},
+            {"board_name": "ECU-X500", "revision": "A", "ref_designator": "Y1", "part_number": "ABM8-8.000MHZ", "value": "8MHz Crystal", "package": "ABM8", "manufacturer": "Abracon", "category": "passives", "qty_per_board": 1, "unit_price": 0.65, "msl_level": 1},
+            {"board_name": "ADAS-PRO", "revision": "A", "ref_designator": "U1", "part_number": "TDA4VM", "value": "Vision SoC", "package": "BGA-841", "manufacturer": "TI", "category": "ics", "qty_per_board": 1, "unit_price": 85.00, "msl_level": 4},
+            {"board_name": "ADAS-PRO", "revision": "A", "ref_designator": "U2", "part_number": "MT41K256M16TW", "value": "4Gb DDR3", "package": "BGA-96", "manufacturer": "Micron", "category": "ics", "qty_per_board": 2, "unit_price": 6.50, "msl_level": 3},
+        ]
+        for b in bom_items:
+            db.add(BOMItem(tenant_id=tid, **b))
+        # BOM Revisions
+        db.add(BOMRevision(tenant_id=tid, board_name="ECU-X500", revision="A", date=today - timedelta(days=60), author="Arun K", changes_description="Initial release", total_cost=Decimal("19.43"), part_count=7))
+        db.add(BOMRevision(tenant_id=tid, board_name="ADAS-PRO", revision="A", date=today - timedelta(days=30), author="Arun K", changes_description="Initial release", total_cost=Decimal("98.00"), part_count=3))
+
+        # --- Purchase Orders ---
+        po_data = [
+            {"ref_number": "PO-001", "supplier_name": "Mouser Electronics", "total_items": 5, "total_amount": 125000, "status": "confirmed", "lead_time_days": 14},
+            {"ref_number": "PO-002", "supplier_name": "Digi-Key", "total_items": 8, "total_amount": 87500, "status": "sent", "lead_time_days": 10},
+            {"ref_number": "PO-003", "supplier_name": "PCB Power", "total_items": 2, "total_amount": 340000, "status": "partially_received", "lead_time_days": 21},
+        ]
+        for po in po_data:
+            sup = next((s for s in suppliers if s.name == po["supplier_name"]), None)
+            order = PurchaseOrder(
+                tenant_id=tid, ref_number=po["ref_number"], supplier_id=sup.id if sup else None,
+                supplier_name=po["supplier_name"], total_items=po["total_items"],
+                total_amount=po["total_amount"], order_date=today - timedelta(days=10),
+                eta_date=today + timedelta(days=po["lead_time_days"]),
+                status=po["status"], lead_time_days=po["lead_time_days"],
+            )
+            db.add(order)
+            db.flush()
+            db.add(POLineItem(tenant_id=tid, purchase_order_id=order.id, part_number="STM32F407VGT6", description="MCU ARM Cortex-M4", quantity=5000, unit_price=12.50))
+            db.add(POLineItem(tenant_id=tid, purchase_order_id=order.id, part_number="TJA1050T", description="CAN Transceiver", quantity=10000, unit_price=1.80))
+
+        # --- Inventory ---
+        inv_items = [
+            {"part_number": "STM32F407VGT6", "description": "MCU ARM Cortex-M4 168MHz", "stock_quantity": 12500, "reel_count": 5, "location": "Rack A1", "msl_level": 3, "reorder_point": 5000, "unit_price": 12.50},
+            {"part_number": "TJA1050T", "description": "CAN Transceiver High Speed", "stock_quantity": 25000, "reel_count": 10, "location": "Rack A2", "msl_level": 1, "reorder_point": 10000, "unit_price": 1.80},
+            {"part_number": "RC0402JR-07100KL", "description": "100K Ohm 0402 5%", "stock_quantity": 500000, "reel_count": 50, "location": "Rack B1", "msl_level": 1, "reorder_point": 100000, "unit_price": 0.005},
+            {"part_number": "GRM155R71C104KA88D", "description": "100nF MLCC 0402 16V", "stock_quantity": 350000, "reel_count": 35, "location": "Rack B2", "msl_level": 1, "reorder_point": 100000, "unit_price": 0.008},
+            {"part_number": "TDA4VM", "description": "TDA4VM Vision SoC BGA-841", "stock_quantity": 200, "reel_count": 1, "location": "Dry Cabinet 1", "msl_level": 4, "reorder_point": 100, "unit_price": 85.00},
+            {"part_number": "LM2596S-5.0", "description": "5V 3A Step-Down Regulator", "stock_quantity": 8000, "reel_count": 4, "location": "Rack A3", "msl_level": 3, "reorder_point": 3000, "unit_price": 1.95},
+            {"part_number": "5-534206-4", "description": "34-pin Automotive Connector", "stock_quantity": 3000, "reel_count": 0, "location": "Rack C1", "msl_level": 1, "reorder_point": 1000, "unit_price": 2.40},
+            {"part_number": "MT41K256M16TW", "description": "4Gb DDR3L SDRAM BGA-96", "stock_quantity": 500, "reel_count": 2, "location": "Dry Cabinet 1", "msl_level": 3, "reorder_point": 200, "unit_price": 6.50},
+        ]
+        for i in inv_items:
+            db.add(InventoryItem(tenant_id=tid, **i))
+
+        # --- MSL Reels ---
+        now = datetime.utcnow()
+        msl_reels = [
+            {"reel_id": "REEL-STM32-001", "part_number": "STM32F407VGT6", "msl_level": 3, "floor_life_hours": 168, "remaining_hours": 120, "status": "ok", "location": "SMT Line 1"},
+            {"reel_id": "REEL-STM32-002", "part_number": "STM32F407VGT6", "msl_level": 3, "floor_life_hours": 168, "remaining_hours": 24, "status": "warning", "location": "SMT Line 1", "opened_at": now - timedelta(hours=144)},
+            {"reel_id": "REEL-TDA4-001", "part_number": "TDA4VM", "msl_level": 4, "floor_life_hours": 72, "remaining_hours": 8, "status": "critical", "location": "SMT Line 2", "opened_at": now - timedelta(hours=64)},
+            {"reel_id": "REEL-TDA4-002", "part_number": "TDA4VM", "msl_level": 4, "floor_life_hours": 72, "remaining_hours": 0, "status": "expired", "location": "Bake Queue", "opened_at": now - timedelta(hours=80)},
+            {"reel_id": "REEL-LM2596-001", "part_number": "LM2596S-5.0", "msl_level": 3, "floor_life_hours": 168, "remaining_hours": 168, "status": "ok", "location": "Dry Cabinet 2"},
+            {"reel_id": "REEL-DDR3-001", "part_number": "MT41K256M16TW", "msl_level": 3, "floor_life_hours": 168, "remaining_hours": 50, "status": "warning", "location": "SMT Line 2", "opened_at": now - timedelta(hours=118)},
+        ]
+        for r in msl_reels:
+            db.add(MSLReel(tenant_id=tid, **r))
+
+        # --- Work Orders ---
+        wo_data = [
+            {"ref_number": "WO-001", "board_name": "ECU-X500", "customer_name": "Bosch India", "quantity": 2500, "status": "active", "progress": 65, "line_id": lines[0].id},
+            {"ref_number": "WO-002", "board_name": "ECU-X500", "customer_name": "Bosch India", "quantity": 2500, "status": "scheduled", "progress": 0, "line_id": lines[0].id},
+            {"ref_number": "WO-003", "board_name": "SENSOR-HUB", "customer_name": "TVS Electronics", "quantity": 3000, "status": "completed", "progress": 100, "line_id": lines[2].id},
+        ]
+        for wo in wo_data:
+            lid = wo.pop("line_id")
+            wo["progress"] = wo.pop("progress")
+            order = WorkOrder(tenant_id=tid, line_id=lid, **wo)
+            db.add(order)
+
+        # --- NPI Projects ---
+        npi_data = [
+            {"ref_number": "NPI-001", "name": "ADAS-PRO NPI", "customer_name": "Continental AG", "board_name": "ADAS-PRO", "stage": "prototype", "estimated_volume": 2000, "target_date": today + timedelta(days=60)},
+            {"ref_number": "NPI-002", "name": "BMS-EV-50 NPI", "customer_name": "Mahindra Electric", "board_name": "BMS-EV-50", "stage": "feasibility", "estimated_volume": 5000, "target_date": today + timedelta(days=90)},
+            {"ref_number": "NPI-003", "name": "IoT-GW-100 NPI", "customer_name": "Tata Elxsi", "board_name": "IoT-GW-100", "stage": "production_ready", "estimated_volume": 10000, "target_date": today + timedelta(days=15)},
+        ]
+        for n in npi_data:
+            db.add(NPIProject(tenant_id=tid, **n))
+
+        # --- ECOs ---
+        eco_data = [
+            {"ref_number": "ECO-001", "title": "ECU-X500 Cap Change", "board_name": "ECU-X500", "description": "Replace C5-C8 with higher voltage rating caps", "reason": "Field failure", "status": "approved"},
+            {"ref_number": "ECO-002", "title": "ADAS-PRO DDR3 Alt", "board_name": "ADAS-PRO", "description": "Add Samsung DDR3 as alternate source", "reason": "Supply risk", "status": "draft"},
+        ]
+        for e in eco_data:
+            db.add(ECO(tenant_id=tid, **e))
+
+        # --- NCRs ---
+        ncr_data = [
+            {"ref_number": "NCR-001", "title": "Solder bridge on U1", "description": "Solder bridge detected between pins 45-46 on STM32", "board_name": "ECU-X500", "defect_type": "solder_bridge", "severity": "major", "quantity_affected": 12, "status": "investigating"},
+            {"ref_number": "NCR-002", "title": "Missing component R15", "description": "R15 not placed on 8 boards in WO-001 batch 3", "board_name": "ECU-X500", "defect_type": "missing_component", "severity": "minor", "quantity_affected": 8, "status": "open"},
+            {"ref_number": "NCR-003", "title": "Tombstoning on C3", "description": "Tombstone defect on 100nF caps, reflow profile issue", "board_name": "SENSOR-HUB", "defect_type": "tombstone", "severity": "major", "quantity_affected": 25, "status": "contained"},
+        ]
+        for n in ncr_data:
+            db.add(NCR(tenant_id=tid, **n))
+
+        # --- Invoices ---
+        inv_data = [
+            {"ref_number": "INV-001", "customer_name": "Bosch India", "subtotal": 1125000, "gst_amount": 202500, "total": 1327500, "status": "paid", "due_date": today - timedelta(days=5)},
+            {"ref_number": "INV-002", "customer_name": "TVS Electronics", "subtotal": 840000, "gst_amount": 151200, "total": 991200, "status": "sent", "due_date": today + timedelta(days=15)},
+            {"ref_number": "INV-003", "customer_name": "Continental AG", "subtotal": 480000, "gst_amount": 86400, "total": 566400, "status": "draft", "due_date": today + timedelta(days=30)},
+        ]
+        for inv in inv_data:
+            amt_paid = inv["total"] if inv["status"] == "paid" else 0
+            balance = inv["total"] - amt_paid
+            db.add(Invoice(tenant_id=tid, amount_paid=amt_paid, balance_due=balance, issue_date=today - timedelta(days=10), **inv))
+
+        # --- Vendor Bills ---
+        vb_data = [
+            {"ref_number": "VB-001", "supplier_name": "Mouser Electronics", "subtotal": 125000, "gst_amount": 22500, "total": 147500, "status": "approved", "due_date": today + timedelta(days=10)},
+            {"ref_number": "VB-002", "supplier_name": "PCB Power", "subtotal": 340000, "gst_amount": 61200, "total": 401200, "status": "pending", "due_date": today + timedelta(days=20)},
+        ]
+        for vb in vb_data:
+            db.add(VendorBill(tenant_id=tid, balance_due=vb["total"], issue_date=today - timedelta(days=5), **vb))
+
+        # --- Shipments ---
+        ship_data = [
+            {"ref_number": "SHP-001", "customer_name": "TVS Electronics", "board_count": 3000, "carrier": "BlueDart", "tracking_number": "BD-2026-45678", "status": "delivered", "eta_date": today - timedelta(days=2)},
+            {"ref_number": "SHP-002", "customer_name": "Bosch India", "board_count": 1000, "carrier": "FedEx", "tracking_number": "FX-2026-78901", "status": "in_transit", "eta_date": today + timedelta(days=3)},
+        ]
+        for sh in ship_data:
+            db.add(Shipment(tenant_id=tid, **sh))
+
+        # --- RMAs ---
+        rma_data = [
+            {"ref_number": "RMA-001", "customer_name": "Bosch India", "customer_email": "rahul.menon@bosch.com", "board_name": "ECU-X500", "quantity": 15, "reason": "field_failure", "description": "Power supply section failure in field", "status": "inspecting"},
+        ]
+        for r in rma_data:
+            db.add(RMA(tenant_id=tid, **r))
 
         db.commit()
-        print("\nSeed complete! 11 users, 6 suppliers, 3 lines, 5 equipment created.")
-        print(f"Tenant ID: {tenant.id}")
+        print(f"\nSeed complete!")
+        print(f"  11 users, 6 suppliers, 3 lines, 5 equipment")
+        print(f"  7 CRM leads, 5 sales orders, 9 BOM items, 3 POs")
+        print(f"  8 inventory items, 6 MSL reels, 3 work orders")
+        print(f"  3 NPI projects, 2 ECOs, 3 NCRs")
+        print(f"  3 invoices, 2 vendor bills, 2 shipments, 1 RMA")
+        print(f"Tenant ID: {tid}")
 
     except Exception as e:
         db.rollback()

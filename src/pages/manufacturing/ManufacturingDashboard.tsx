@@ -17,7 +17,8 @@ import { PageHeader } from "@/components/shared/PageHeader"
 import { KPICard } from "@/components/shared/KPICard"
 import { StatusBadge } from "@/components/shared/StatusBadge"
 import { cn, formatNumber } from "@/lib/utils"
-import { productionLines, workOrders } from "@/lib/mock-data"
+import { productionLines as mockProductionLines, workOrders as mockWorkOrders } from "@/lib/mock-data"
+import { useApiData, transformList } from "@/lib/useApi"
 
 import { WorkOrders } from "./WorkOrders"
 import { ProductionSchedule } from "./ProductionSchedule"
@@ -32,16 +33,18 @@ const dashTabs: { key: DashTab; label: string; icon: typeof Factory }[] = [
   { key: "instructions", label: "Work Instructions", icon: BookOpen },
 ]
 
-const floorKPIs = {
-  linesRunning: productionLines.filter((l) => l.status === "running").length,
-  totalLines: productionLines.length,
-  avgOEE: Math.round(
-    productionLines.filter((l) => l.oee > 0).reduce((a, b) => a + b.oee, 0) /
-      productionLines.filter((l) => l.oee > 0).length
-  ) || 0,
-  totalOutput: productionLines.reduce((a, b) => a + b.completed, 0),
-  totalDefects: productionLines.reduce((a, b) => a + b.defects, 0),
-  activeWOs: workOrders.filter((wo) => wo.status === "active").length,
+function computeFloorKPIs(productionLines: typeof mockProductionLines, workOrders: typeof mockWorkOrders) {
+  return {
+    linesRunning: productionLines.filter((l) => l.status === "running").length,
+    totalLines: productionLines.length,
+    avgOEE: Math.round(
+      productionLines.filter((l) => l.oee > 0).reduce((a, b) => a + b.oee, 0) /
+        productionLines.filter((l) => l.oee > 0).length
+    ) || 0,
+    totalOutput: productionLines.reduce((a, b) => a + b.completed, 0),
+    totalDefects: productionLines.reduce((a, b) => a + b.defects, 0),
+    activeWOs: workOrders.filter((wo) => wo.status === "active").length,
+  }
 }
 
 export function ManufacturingDashboard() {
@@ -88,6 +91,10 @@ export function ManufacturingDashboard() {
 
 /* ─── Floor Status Content ─── */
 function FloorStatusContent() {
+  const { data: productionLines } = useApiData("/manufacturing/lines", mockProductionLines, (raw: any) => transformList(raw?.lines ?? [], undefined) as typeof mockProductionLines)
+  const { data: workOrders } = useApiData("/manufacturing/work-orders", mockWorkOrders, (raw: any) => transformList(raw?.work_orders ?? [], undefined) as typeof mockWorkOrders)
+  const floorKPIs = computeFloorKPIs(productionLines, workOrders)
+
   return (
     <div className="space-y-6">
       {/* Floor KPIs */}

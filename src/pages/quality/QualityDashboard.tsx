@@ -29,6 +29,7 @@ import { StatusBadge } from "@/components/shared/StatusBadge"
 import { ExportButtons } from "@/components/shared/ExportButtons"
 import { cn } from "@/lib/utils"
 import { qualityMetrics, defectPareto } from "@/lib/mock-data"
+import { useApiData, snakeToCamel } from "@/lib/useApi"
 import {
   BarChart,
   Bar,
@@ -461,40 +462,46 @@ const detectionBreakdown = [
 // ─── Components ───
 
 function OverviewTab() {
+  const { data: metrics } = useApiData("/quality/metrics", qualityMetrics, (raw: any) => {
+    const c = snakeToCamel(raw) as any
+    return { ...qualityMetrics, ...c } as typeof qualityMetrics
+  })
+  // defectPareto has no backend endpoint — keep as mock
+
   return (
     <div className="space-y-6">
       {/* KPIs */}
       <div className="grid gap-4 grid-cols-2 lg:grid-cols-5">
         <KPICard
           title="First Pass Yield"
-          value={`${qualityMetrics.fpy}%`}
-          subtitle={`Target: ${qualityMetrics.fpyTarget}%`}
+          value={`${metrics.fpy}%`}
+          subtitle={`Target: ${metrics.fpyTarget}%`}
           icon={CheckCircle}
           iconColor="text-emerald-500"
         />
         <KPICard
           title="DPMO"
-          value={String(qualityMetrics.dpmo)}
-          change={qualityMetrics.dpmoChange}
+          value={String(metrics.dpmo)}
+          change={metrics.dpmoChange}
           changePeriod="vs last month"
           icon={TrendingDown}
           iconColor="text-blue-500"
         />
         <KPICard
           title="Open NCRs"
-          value={String(qualityMetrics.openNCRs)}
+          value={String(metrics.openNCRs)}
           icon={FileWarning}
           iconColor="text-amber-500"
         />
         <KPICard
           title="Open CAPAs"
-          value={String(qualityMetrics.openCAPAs)}
+          value={String(metrics.openCAPAs)}
           icon={ShieldAlert}
           iconColor="text-orange-500"
         />
         <KPICard
           title="Customer Complaints"
-          value={String(qualityMetrics.customerComplaints)}
+          value={String(metrics.customerComplaints)}
           subtitle="This month"
           icon={MessageSquareWarning}
           iconColor="text-red-500"
@@ -532,7 +539,7 @@ function OverviewTab() {
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
               <CardTitle className="text-sm font-medium">FPY Trend (6 Months)</CardTitle>
-              <span className="text-xs text-muted-foreground">Target: {qualityMetrics.fpyTarget}%</span>
+              <span className="text-xs text-muted-foreground">Target: {metrics.fpyTarget}%</span>
             </div>
           </CardHeader>
           <CardContent>
@@ -543,7 +550,7 @@ function OverviewTab() {
                   <XAxis dataKey="month" className="text-xs" tick={{ fill: "var(--muted-foreground)" }} />
                   <YAxis className="text-xs" tick={{ fill: "var(--muted-foreground)" }} domain={[95, 100]} tickFormatter={(v) => `${v}%`} />
                   <Tooltip contentStyle={tooltipStyle} formatter={(value: any) => [`${value}%`, "FPY"]} />
-                  <Line type="monotone" dataKey={() => qualityMetrics.fpyTarget} stroke="#a3a3a3" strokeDasharray="5 5" strokeWidth={1.5} dot={false} name="Target" />
+                  <Line type="monotone" dataKey={() => metrics.fpyTarget} stroke="#a3a3a3" strokeDasharray="5 5" strokeWidth={1.5} dot={false} name="Target" />
                   <Line type="monotone" dataKey="fpy" stroke="#22c55e" strokeWidth={2.5} dot={{ r: 4, fill: "#22c55e", stroke: "var(--background)", strokeWidth: 2 }} activeDot={{ r: 6, fill: "#22c55e", stroke: "var(--background)", strokeWidth: 2 }} />
                 </LineChart>
               </ResponsiveContainer>

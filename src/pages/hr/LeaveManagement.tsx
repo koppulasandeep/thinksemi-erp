@@ -15,6 +15,8 @@ import { Badge } from "@/components/ui/badge"
 import { StatusBadge } from "@/components/shared/StatusBadge"
 import { Separator } from "@/components/ui/separator"
 import { cn, getInitials } from "@/lib/utils"
+import { useApiData, snakeToCamel } from "@/lib/useApi"
+import { api } from "@/lib/api"
 
 // ── Indian Leave Types ──
 
@@ -178,22 +180,41 @@ const leaveTypeLabels: Record<string, string> = {
 // ── Component ──
 
 export function LeaveManagement() {
-  const [requests, setRequests] = useState(initialRequests)
+  const { data: requests, refetch } = useApiData<LeaveRequest[]>(
+    "/hr/leave-requests",
+    initialRequests,
+    (raw: any) => {
+      const arr = raw?.leave_requests ?? raw
+      if (!Array.isArray(arr)) return initialRequests
+      return arr.map((r: any) => {
+        const c = snakeToCamel(r)
+        return {
+          id: c.id ?? "",
+          employee: c.employee ?? c.employeeName ?? "",
+          type: c.type ?? c.leaveType ?? "",
+          from: c.from ?? c.fromDate ?? "",
+          to: c.to ?? c.toDate ?? "",
+          days: c.days ?? 1,
+          status: c.status ?? "pending",
+          reason: c.reason ?? "",
+          medCert: c.medCert ?? false,
+        } as LeaveRequest
+      })
+    }
+  )
   const [activeView, setActiveView] = useState<"requests" | "balances" | "holidays" | "policy">("requests")
 
   const pendingRequests = requests.filter((r) => r.status === "pending")
   const processedRequests = requests.filter((r) => r.status !== "pending")
 
-  const handleApprove = (id: string) => {
-    setRequests((prev) =>
-      prev.map((r) => (r.id === id ? { ...r, status: "approved" as const } : r))
-    )
+  const handleApprove = async (id: string) => {
+    await api.patch(`/hr/leave-requests/${id}/approve`).catch(() => {})
+    refetch()
   }
 
-  const handleReject = (id: string) => {
-    setRequests((prev) =>
-      prev.map((r) => (r.id === id ? { ...r, status: "rejected" as const } : r))
-    )
+  const handleReject = async (id: string) => {
+    await api.patch(`/hr/leave-requests/${id}/reject`).catch(() => {})
+    refetch()
   }
 
   const today = new Date(2026, 2, 29)

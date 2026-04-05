@@ -22,6 +22,7 @@ import {
   alerts,
   productionLines,
 } from "@/lib/mock-data"
+import { useApiData, snakeToCamel } from "@/lib/useApi"
 import {
   AreaChart,
   Area,
@@ -38,6 +39,41 @@ import {
 } from "recharts"
 
 export function Dashboard() {
+  const { data: kpis } = useApiData(
+    "/dashboard/kpis",
+    dashboardKPIs,
+    (raw: any) => {
+      const d = snakeToCamel(raw)
+      return {
+        revenue: { value: d.revenue ?? dashboardKPIs.revenue.value, change: dashboardKPIs.revenue.change },
+        activeOrders: { value: d.activeOrders ?? dashboardKPIs.activeOrders.value, late: dashboardKPIs.activeOrders.late },
+        onTimeDelivery: { value: d.onTimeDelivery ?? dashboardKPIs.onTimeDelivery.value },
+        oee: { value: d.oee ?? dashboardKPIs.oee.value, change: dashboardKPIs.oee.change },
+        firstPassYield: { value: d.fpy ?? dashboardKPIs.firstPassYield.value },
+      }
+    }
+  )
+
+  const { data: alertsData } = useApiData(
+    "/dashboard/alerts",
+    alerts,
+    (raw: any) => {
+      const arr = raw?.alerts ?? raw
+      if (!Array.isArray(arr)) return alerts
+      return arr.map((a: any) => snakeToCamel(a)) as typeof alerts
+    }
+  )
+
+  const { data: linesData } = useApiData(
+    "/dashboard/production-lines",
+    productionLines,
+    (raw: any) => {
+      const arr = raw?.lines ?? raw
+      if (!Array.isArray(arr)) return productionLines
+      return arr.map((l: any) => snakeToCamel(l)) as typeof productionLines
+    }
+  )
+
   return (
     <div className="space-y-6">
       {/* Page title */}
@@ -59,36 +95,36 @@ export function Dashboard() {
       <div className="grid gap-4 grid-cols-2 lg:grid-cols-5">
         <KPICard
           title="Revenue"
-          value={formatCurrency(dashboardKPIs.revenue.value)}
-          change={dashboardKPIs.revenue.change}
+          value={formatCurrency(kpis.revenue.value)}
+          change={kpis.revenue.change}
           changePeriod="MoM"
           icon={IndianRupee}
           color="green"
         />
         <KPICard
           title="Active Orders"
-          value={String(dashboardKPIs.activeOrders.value)}
-          subtitle={`${dashboardKPIs.activeOrders.late} late`}
+          value={String(kpis.activeOrders.value)}
+          subtitle={`${kpis.activeOrders.late} late`}
           icon={ShoppingCart}
           color="blue"
         />
         <KPICard
           title="On-Time Delivery"
-          value={`${dashboardKPIs.onTimeDelivery.value}%`}
+          value={`${kpis.onTimeDelivery.value}%`}
           icon={Clock}
           color="purple"
         />
         <KPICard
           title="OEE"
-          value={`${dashboardKPIs.oee.value}%`}
-          change={dashboardKPIs.oee.change}
+          value={`${kpis.oee.value}%`}
+          change={kpis.oee.change}
           changePeriod="vs last week"
           icon={Gauge}
           color="orange"
         />
         <KPICard
           title="First Pass Yield"
-          value={`${dashboardKPIs.firstPassYield.value}%`}
+          value={`${kpis.firstPassYield.value}%`}
           icon={CheckCircle}
           color="teal"
         />
@@ -215,7 +251,7 @@ export function Dashboard() {
             </div>
           </CardHeader>
           <CardContent className="space-y-3">
-            {productionLines.map((line) => {
+            {linesData.map((line) => {
               const isRunning = line.status === "running"
               const isChangeover = line.status === "changeover"
               return (
@@ -328,11 +364,11 @@ export function Dashboard() {
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
               <CardTitle className="text-sm font-medium">Active Alerts</CardTitle>
-              <span className="text-xs text-muted-foreground">{alerts.length} items</span>
+              <span className="text-xs text-muted-foreground">{alertsData.length} items</span>
             </div>
           </CardHeader>
           <CardContent className="space-y-2">
-            {alerts.map((alert) => (
+            {alertsData.map((alert) => (
               <div
                 key={alert.id}
                 className={cn(

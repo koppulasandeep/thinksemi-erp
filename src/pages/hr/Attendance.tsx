@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge"
 import { cn, getInitials } from "@/lib/utils"
 import { ExportButtons } from "@/components/shared/ExportButtons"
 import { employees, attendanceData, type AttendanceStatus } from "@/lib/mock-data"
+import { useApiData, snakeToCamel } from "@/lib/useApi"
 
 const statusConfig: Record<AttendanceStatus, { label: string; color: string; bg: string }> = {
   P: { label: "Present", color: "text-emerald-700 dark:text-emerald-400", bg: "bg-emerald-500/15" },
@@ -34,6 +35,34 @@ const fullAttendance: Record<string, AttendanceStatus[]> = {
 }
 
 export function Attendance() {
+  const { data: emps } = useApiData(
+    "/hr/employees",
+    employees,
+    (raw: any) => {
+      const arr = raw?.employees ?? raw
+      if (!Array.isArray(arr)) return employees
+      return arr.map((e: any) => snakeToCamel(e)) as typeof employees
+    }
+  )
+
+  const { data: attData } = useApiData(
+    "/hr/attendance",
+    fullAttendance,
+    (raw: any) => {
+      const arr = raw?.attendance ?? raw
+      if (!Array.isArray(arr) && typeof raw === "object") return fullAttendance
+      // If the API returns per-employee attendance data, merge it
+      if (typeof raw === "object" && !Array.isArray(raw)) {
+        const merged: Record<string, AttendanceStatus[]> = { ...fullAttendance }
+        for (const [key, val] of Object.entries(raw)) {
+          if (Array.isArray(val)) merged[key] = val as AttendanceStatus[]
+        }
+        return merged
+      }
+      return fullAttendance
+    }
+  )
+
   const [month] = useState("March 2026")
 
   // Summary counts
@@ -41,8 +70,8 @@ export function Attendance() {
   let presentToday = 0
   let absentToday = 0
   let onLeaveToday = 0
-  employees.forEach((emp) => {
-    const status = fullAttendance[emp.id]?.[todayIdx]
+  emps.forEach((emp) => {
+    const status = attData[emp.id]?.[todayIdx]
     if (status === "P" || status === "OT") presentToday++
     else if (status === "A") absentToday++
     else if (status === "L" || status === "CO") onLeaveToday++
@@ -63,8 +92,8 @@ export function Attendance() {
         </div>
         <div className="flex items-center gap-2">
           <ExportButtons
-            data={employees.map((emp) => {
-              const data = fullAttendance[emp.id] ?? []
+            data={emps.map((emp) => {
+              const data = attData[emp.id] ?? []
               const presentDays = data.filter((s) => s === "P" || s === "OT").length
               const absentDays = data.filter((s) => s === "A").length
               const leaveDays = data.filter((s) => s === "L" || s === "CO").length
@@ -135,8 +164,8 @@ export function Attendance() {
                 </tr>
               </thead>
               <tbody>
-                {employees.map((emp) => {
-                  const data = fullAttendance[emp.id] ?? []
+                {emps.map((emp) => {
+                  const data = attData[emp.id] ?? []
                   const presentDays = data.filter((s) => s === "P" || s === "OT").length
 
                   return (

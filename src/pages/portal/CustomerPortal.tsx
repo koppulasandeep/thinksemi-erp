@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { cn } from "@/lib/utils"
+import { useApiData, transformList } from "@/lib/useApi"
 
 const customerName = "Bosch India"
 
@@ -91,6 +92,16 @@ const statusLabels: Record<string, string> = {
 }
 
 export function CustomerPortal() {
+  const { data: portalOrders } = useApiData("/portal/my-orders", orders, (raw: any) =>
+    transformList(raw?.orders ?? raw ?? [], undefined) as typeof orders
+  )
+  const { data: portalNpi } = useApiData("/portal/my-npi", npiStatus, (raw: any) =>
+    transformList(raw?.npi ?? raw ?? [], undefined) as typeof npiStatus
+  )
+  const { data: portalRmas } = useApiData("/portal/my-rma", rmas, (raw: any) =>
+    transformList(raw?.rmas ?? raw ?? [], undefined) as typeof rmas
+  )
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -176,7 +187,7 @@ export function CustomerPortal() {
           </div>
         </CardHeader>
         <CardContent className="space-y-3">
-          {orders.map((order) => (
+          {portalOrders.map((order) => (
             <div
               key={order.id}
               className="rounded-lg border p-4 hover:bg-accent/50 transition-colors cursor-pointer"
@@ -236,7 +247,7 @@ export function CustomerPortal() {
             <CardTitle className="text-sm font-medium">NPI Status</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            {npiStatus.map((npi) => (
+            {portalNpi.map((npi) => (
               <div key={npi.board} className="rounded-lg border p-4 space-y-3">
                 <div className="flex items-center justify-between">
                   <div>
@@ -278,7 +289,7 @@ export function CustomerPortal() {
             </div>
           </CardHeader>
           <CardContent className="space-y-3">
-            {rmas.map((rma) => (
+            {portalRmas.map((rma) => (
               <div key={rma.id} className="rounded-lg border p-4 space-y-2">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">

@@ -1,9 +1,11 @@
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { cn, formatCurrency } from "@/lib/utils"
 import { crmLeads } from "@/lib/mock-data"
 import { GripVertical, Building2, CircuitBoard } from "lucide-react"
+import { useApiData, transformList } from "@/lib/useApi"
+import { api } from "@/lib/api"
 import {
   DndContext,
   DragOverlay,
@@ -195,8 +197,45 @@ function DroppableColumn({
   )
 }
 
+// Map backend snake_case stages to frontend display labels
+const stageBackendToFrontend: Record<string, string> = {
+  new_lead: "New Lead",
+  qualified: "Qualified",
+  quoted: "Quoted",
+  negotiation: "Negotiation",
+  won: "Won",
+  lost: "Lost",
+}
+
+const stageFrontendToBackend: Record<string, string> = {
+  "New Lead": "new_lead",
+  Qualified: "qualified",
+  Quoted: "quoted",
+  Negotiation: "negotiation",
+  Won: "won",
+  Lost: "lost",
+}
+
+function transformLeads(raw: any): Lead[] {
+  const items = raw?.leads ?? []
+  return transformList<Lead>(items, (item: any) => ({
+    ...item,
+    id: item.id ?? item.lead_id,
+    stage: stageBackendToFrontend[item.stage] ?? item.stage,
+    company: item.company ?? item.company_name,
+    contact: item.contact ?? item.contact_name,
+  }))
+}
+
 export function Pipeline() {
-  const [leads, setLeads] = useState<Lead[]>(crmLeads.filter(l => kanbanStages.includes(l.stage as KanbanStage)))
+  const { data: apiLeads, refetch } = useApiData<Lead[]>(
+    "/crm/leads",
+    crmLeads.filter(l => kanbanStages.includes(l.stage as KanbanStage)),
+    transformLeads
+  )
+  const [leads, setLeads] = useState<Lead[]>(apiLeads)
+  // Sync when API data arrives
+  useEffect(() => { setLeads(apiLeads.filter(l => kanbanStages.includes(l.stage as KanbanStage))) }, [apiLeads])
   const [activeId, setActiveId] = useState<string | null>(null)
   const [overColumnId, setOverColumnId] = useState<string | null>(null)
 
@@ -256,11 +295,19 @@ export function Pipeline() {
 
     if (!targetColumn) return
 
+    // Optimistically update UI
     setLeads((prev) =>
       prev.map((l) =>
         l.id === activeLeadId ? { ...l, stage: targetColumn } : l
       )
     )
+
+    // Call backend to persist the stage change
+    const backendStage = stageFrontendToBackend[targetColumn] ?? targetColumn
+    api.patch(`/crm/leads/${activeLeadId}/stage`, { stage: backendStage }).catch(() => {
+      // On failure, refetch to restore server state
+      refetch()
+    })
   }
 
   function handleDragCancel() {
