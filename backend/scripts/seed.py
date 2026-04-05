@@ -4,7 +4,7 @@ import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 from passlib.context import CryptContext
 from sqlalchemy.orm import Session
@@ -65,6 +65,89 @@ def seed():
         db.flush()
 
         db.add(PayrollConfig(tenant_id=tid))
+
+        # --- Employees ---
+        user_objs = db.query(User).filter(User.tenant_id == tid).all()
+        user_map = {u.email: u for u in user_objs}
+        emp_data = [
+            {"emp_code": "EMP-001", "name": "Sandeep K", "email": "superadmin@thinksemi.com", "phone": "+91-9000000001", "department": "Management", "designation": "CEO / Super Admin", "shift": "general", "date_of_joining": date(2020, 1, 15), "date_of_birth": date(1988, 5, 10), "pan": "ABCPK1234A", "uan": "100100001234", "bank_account": "1234567890", "bank_ifsc": "ICIC0001234", "bank_name": "ICICI Bank"},
+            {"emp_code": "EMP-002", "name": "Rajesh Venkat", "email": "admin@thinksemi.com", "phone": "+91-9000000002", "department": "Operations", "designation": "Factory Manager", "shift": "general", "date_of_joining": date(2020, 3, 1), "date_of_birth": date(1985, 8, 22), "pan": "ABCPR2345B", "uan": "100100002345", "bank_account": "2345678901", "bank_ifsc": "SBIN0005678", "bank_name": "SBI"},
+            {"emp_code": "EMP-003", "name": "Lakshmi Venkat", "email": "hr@thinksemi.com", "phone": "+91-9000000003", "department": "HR", "designation": "HR Manager", "shift": "general", "date_of_joining": date(2021, 6, 15), "date_of_birth": date(1990, 3, 14), "pan": "ABCPL3456C", "uan": "100100003456", "bank_account": "3456789012", "bank_ifsc": "HDFC0006789", "bank_name": "HDFC Bank"},
+            {"emp_code": "EMP-004", "name": "Deepa Krishnan", "email": "finance@thinksemi.com", "phone": "+91-9000000004", "department": "Finance", "designation": "Finance Manager", "shift": "general", "date_of_joining": date(2021, 8, 1), "date_of_birth": date(1987, 11, 30), "pan": "ABCPD4567D", "uan": "100100004567", "bank_account": "4567890123", "bank_ifsc": "ICIC0002345", "bank_name": "ICICI Bank"},
+            {"emp_code": "EMP-005", "name": "Arun Krishnan", "email": "engineering@thinksemi.com", "phone": "+91-9000000005", "department": "Engineering", "designation": "Engineering Manager", "shift": "general", "date_of_joining": date(2020, 5, 10), "date_of_birth": date(1986, 7, 5), "pan": "ABCPA5678E", "uan": "100100005678", "bank_account": "5678901234", "bank_ifsc": "SBIN0007890", "bank_name": "SBI"},
+            {"emp_code": "EMP-006", "name": "Karthik Raja", "email": "production@thinksemi.com", "phone": "+91-9000000006", "department": "Production", "designation": "Production Manager", "shift": "shift_a", "date_of_joining": date(2022, 1, 10), "date_of_birth": date(1992, 2, 18), "pan": "ABCPK6789F", "uan": "100100006789", "bank_account": "6789012345", "bank_ifsc": "HDFC0008901", "bank_name": "HDFC Bank"},
+            {"emp_code": "EMP-007", "name": "Mohan Rajan", "email": "scm@thinksemi.com", "phone": "+91-9000000007", "department": "Supply Chain", "designation": "Supply Chain Manager", "shift": "general", "date_of_joining": date(2022, 3, 15), "date_of_birth": date(1991, 9, 25), "pan": "ABCPM7890G", "uan": "100100007890", "bank_account": "7890123456", "bank_ifsc": "AXIS0001234", "bank_name": "Axis Bank"},
+            {"emp_code": "EMP-008", "name": "Suresh Babu", "email": "sales@thinksemi.com", "phone": "+91-9000000008", "department": "Sales", "designation": "Sales Manager", "shift": "general", "date_of_joining": date(2023, 2, 1), "date_of_birth": date(1989, 12, 8), "pan": "ABCPS8901H", "uan": "100100008901", "bank_account": "8901234567", "bank_ifsc": "SBIN0009012", "bank_name": "SBI"},
+            {"emp_code": "EMP-009", "name": "Priya Sharma", "email": "quality@thinksemi.com", "phone": "+91-9000000009", "department": "Quality", "designation": "Quality Manager", "shift": "general", "date_of_joining": date(2023, 4, 15), "date_of_birth": date(1993, 6, 20), "pan": "ABCPP9012J", "uan": "100100009012", "bank_account": "9012345678", "bank_ifsc": "ICIC0003456", "bank_name": "ICICI Bank"},
+            {"emp_code": "EMP-010", "name": "Ravi Kumar", "email": "operator@thinksemi.com", "phone": "+91-9000000010", "department": "Production", "designation": "SMT Operator", "shift": "shift_a", "date_of_joining": date(2024, 1, 5), "date_of_birth": date(1995, 4, 12), "pan": "ABCPR0123K", "uan": "100100010123", "bank_account": "0123456789", "bank_ifsc": "HDFC0001234", "bank_name": "HDFC Bank"},
+        ]
+        employees = []
+        for ed in emp_data:
+            user = user_map.get(ed["email"])
+            emp = Employee(tenant_id=tid, user_id=user.id if user else None, **ed)
+            db.add(emp)
+            employees.append(emp)
+        db.flush()
+
+        # --- Attendance (last 7 working days) ---
+        for emp in employees:
+            for days_back in range(1, 8):
+                d = today - timedelta(days=days_back)
+                if d.weekday() >= 5:
+                    continue  # skip weekends
+                status = "P" if days_back != 3 else ("A" if emp.emp_code == "EMP-010" else "P")
+                db.add(Attendance(
+                    tenant_id=tid, employee_id=emp.id, date=d,
+                    status=status, shift_hours=8.0 if status == "P" else 0,
+                    overtime_hours=1.5 if emp.department == "Production" and status == "P" else 0,
+                ))
+
+        # --- Leave Balances (2026) ---
+        for emp in employees:
+            for lt, entitled, used in [("EL", 15, 3), ("CL", 8, 2), ("SL", 10, 1), ("CO", 5, 0)]:
+                db.add(LeaveBalance(
+                    tenant_id=tid, employee_id=emp.id, leave_type=lt,
+                    entitled=entitled, used=used, balance=entitled - used, year=2026,
+                ))
+
+        # --- Leave Requests ---
+        leave_requests = [
+            {"employee_idx": 9, "leave_type": "CL", "from_date": today + timedelta(days=5), "to_date": today + timedelta(days=6), "days": 2, "reason": "Personal work", "status": "pending"},
+            {"employee_idx": 5, "leave_type": "EL", "from_date": today + timedelta(days=10), "to_date": today + timedelta(days=14), "days": 5, "reason": "Family vacation", "status": "approved"},
+            {"employee_idx": 3, "leave_type": "SL", "from_date": today - timedelta(days=3), "to_date": today - timedelta(days=2), "days": 2, "reason": "Unwell", "status": "approved"},
+        ]
+        for lr in leave_requests:
+            idx = lr.pop("employee_idx")
+            db.add(LeaveRequest(tenant_id=tid, employee_id=employees[idx].id, **lr))
+
+        # --- Payroll Batch (March 2026) ---
+        batch = PayrollBatch(
+            tenant_id=tid, ref_number="PAY-2026-03", month=3, year=2026,
+            total_employees=10, total_gross=850000, total_deductions=127500,
+            total_net=722500, total_employer_pf=51000, total_employer_esi=28050,
+            status="approved",
+        )
+        db.add(batch)
+        db.flush()
+        for emp in employees:
+            basic = 45000 if "Manager" in (emp.designation or "") else 25000
+            hra = basic * 0.4
+            special = basic * 0.2
+            gross = basic + hra + special + 1600 + 1250
+            pf_emp = min(basic * 0.12, 1800)
+            esi_emp = gross * 0.0075 if gross <= 21000 else 0
+            pt = 200
+            tds = gross * 0.1 if gross > 30000 else 0
+            deductions = pf_emp + esi_emp + pt + tds
+            db.add(PayrollEmployee(
+                tenant_id=tid, batch_id=batch.id, employee_id=emp.id,
+                basic=basic, hra=hra, special_allowance=special, conveyance=1600, medical=1250,
+                gross=gross, pf_employee=pf_emp, pf_employer=pf_emp, esi_employee=esi_emp,
+                esi_employer=gross * 0.0325 if gross <= 21000 else 0, professional_tax=pt,
+                tds=tds, total_deductions=deductions, net_pay=gross - deductions,
+                days_worked=26, days_absent=0, ot_hours=12 if emp.department == "Production" else 0,
+                ot_pay=2500 if emp.department == "Production" else 0,
+            ))
 
         # --- Suppliers ---
         suppliers = []
@@ -199,7 +282,7 @@ def seed():
             db.add(InventoryItem(tenant_id=tid, **i))
 
         # --- MSL Reels ---
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         msl_reels = [
             {"reel_id": "REEL-STM32-001", "part_number": "STM32F407VGT6", "msl_level": 3, "floor_life_hours": 168, "remaining_hours": 120, "status": "ok", "location": "SMT Line 1"},
             {"reel_id": "REEL-STM32-002", "part_number": "STM32F407VGT6", "msl_level": 3, "floor_life_hours": 168, "remaining_hours": 24, "status": "warning", "location": "SMT Line 1", "opened_at": now - timedelta(hours=144)},
@@ -234,8 +317,8 @@ def seed():
 
         # --- ECOs ---
         eco_data = [
-            {"ref_number": "ECO-001", "title": "ECU-X500 Cap Change", "board_name": "ECU-X500", "description": "Replace C5-C8 with higher voltage rating caps", "reason": "Field failure", "status": "approved"},
-            {"ref_number": "ECO-002", "title": "ADAS-PRO DDR3 Alt", "board_name": "ADAS-PRO", "description": "Add Samsung DDR3 as alternate source", "reason": "Supply risk", "status": "draft"},
+            {"ref_number": "ECO-001", "title": "ECU-X500 Cap Change", "board_name": "ECU-X500", "description": "Replace C5-C8 with higher voltage rating caps", "reason": "quality", "status": "approved"},
+            {"ref_number": "ECO-002", "title": "ADAS-PRO DDR3 Alt", "board_name": "ADAS-PRO", "description": "Add Samsung DDR3 as alternate source", "reason": "obsolescence", "status": "draft"},
         ]
         for e in eco_data:
             db.add(ECO(tenant_id=tid, **e))
@@ -285,11 +368,12 @@ def seed():
 
         db.commit()
         print(f"\nSeed complete!")
-        print(f"  11 users, 6 suppliers, 3 lines, 5 equipment")
+        print(f"  11 users, 10 employees, 6 suppliers, 3 lines, 5 equipment")
         print(f"  7 CRM leads, 5 sales orders, 9 BOM items, 3 POs")
         print(f"  8 inventory items, 6 MSL reels, 3 work orders")
         print(f"  3 NPI projects, 2 ECOs, 3 NCRs")
         print(f"  3 invoices, 2 vendor bills, 2 shipments, 1 RMA")
+        print(f"  Attendance, leave balances, leave requests, 1 payroll batch")
         print(f"Tenant ID: {tid}")
 
     except Exception as e:

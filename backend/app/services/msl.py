@@ -1,6 +1,6 @@
 """MSL (Moisture Sensitivity Level) computation service."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 def compute_msl_status(reel) -> dict:
@@ -14,7 +14,9 @@ def compute_msl_status(reel) -> dict:
       - ok:       otherwise
     """
     if reel.opened_at:
-        elapsed = (datetime.utcnow() - reel.opened_at).total_seconds() / 3600
+        now = datetime.now(timezone.utc)
+        opened = reel.opened_at if reel.opened_at.tzinfo else reel.opened_at.replace(tzinfo=timezone.utc)
+        elapsed = (now - opened).total_seconds() / 3600
         remaining = float(reel.floor_life_hours) - elapsed
     else:
         remaining = float(reel.floor_life_hours)
