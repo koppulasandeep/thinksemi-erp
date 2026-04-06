@@ -28,7 +28,7 @@ class Equipment(Base):
         server_default=text("gen_random_uuid()"),
     )
     tenant_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("tenants.id", ondelete="CASCADE")
+        ForeignKey("tenants.id", ondelete="CASCADE"), index=True
     )
     name: Mapped[str] = mapped_column(String(200))
     equipment_type: Mapped[str] = mapped_column(
@@ -77,10 +77,10 @@ class MaintenanceSchedule(Base):
         server_default=text("gen_random_uuid()"),
     )
     tenant_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("tenants.id", ondelete="CASCADE")
+        ForeignKey("tenants.id", ondelete="CASCADE"), index=True
     )
     equipment_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("equipment.id", ondelete="CASCADE")
+        ForeignKey("equipment.id", ondelete="CASCADE"), index=True
     )
     scheduled_date: Mapped[date] = mapped_column(Date)
     pm_type: Mapped[str] = mapped_column(

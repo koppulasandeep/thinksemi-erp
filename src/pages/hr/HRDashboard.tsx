@@ -50,7 +50,12 @@ export function HRDashboard() {
     (raw: any) => {
       const arr = raw?.employees ?? raw
       if (!Array.isArray(arr)) return employees
-      return arr.map((e: any) => snakeToCamel(e)) as typeof employees
+      return arr.map((e: any) => ({
+        ...snakeToCamel(e),
+        dept: e.department || e.dept || "",
+        role: e.designation || e.role || "",
+        shift: e.shift || "General",
+      })) as typeof employees
     }
   )
 
@@ -188,7 +193,7 @@ function OverviewTab({ employees: emps }: { employees: typeof employees }) {
                   <p className="text-[11px] text-muted-foreground">{emp.role}</p>
                 </div>
                 <Badge variant="outline" className="text-[10px] shrink-0">
-                  {emp.dept.split(" ")[0]}
+                  {(emp.dept || "").split(" ")[0]}
                 </Badge>
               </div>
             ))}

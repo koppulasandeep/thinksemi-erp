@@ -26,11 +26,11 @@ class Invoice(Base):
         server_default=text("gen_random_uuid()"),
     )
     tenant_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("tenants.id", ondelete="CASCADE")
+        ForeignKey("tenants.id", ondelete="CASCADE"), index=True
     )
     ref_number: Mapped[str] = mapped_column(String(30))
     sales_order_id: Mapped[uuid.UUID | None] = mapped_column(
-        ForeignKey("sales_orders.id", ondelete="SET NULL"), nullable=True
+        ForeignKey("sales_orders.id", ondelete="SET NULL"), nullable=True, index=True
     )
     customer_name: Mapped[str] = mapped_column(String(200))
     subtotal: Mapped[float] = mapped_column(Numeric(12, 2))
@@ -66,11 +66,11 @@ class VendorBill(Base):
         server_default=text("gen_random_uuid()"),
     )
     tenant_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("tenants.id", ondelete="CASCADE")
+        ForeignKey("tenants.id", ondelete="CASCADE"), index=True
     )
     ref_number: Mapped[str] = mapped_column(String(30))
     purchase_order_id: Mapped[uuid.UUID | None] = mapped_column(
-        ForeignKey("purchase_orders.id", ondelete="SET NULL"), nullable=True
+        ForeignKey("purchase_orders.id", ondelete="SET NULL"), nullable=True, index=True
     )
     supplier_name: Mapped[str] = mapped_column(String(200))
     subtotal: Mapped[float] = mapped_column(Numeric(12, 2))
@@ -89,7 +89,7 @@ class VendorBill(Base):
         comment="pending|approved|partial|paid|overdue|rejected",
     )
     approved_by: Mapped[uuid.UUID | None] = mapped_column(
-        ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
     )
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
 

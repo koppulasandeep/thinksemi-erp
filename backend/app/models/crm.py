@@ -26,7 +26,7 @@ class CRMLead(Base):
         server_default=text("gen_random_uuid()"),
     )
     tenant_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("tenants.id", ondelete="CASCADE")
+        ForeignKey("tenants.id", ondelete="CASCADE"), index=True
     )
     ref_number: Mapped[str] = mapped_column(String(30))
     company: Mapped[str] = mapped_column(String(200))
@@ -44,7 +44,7 @@ class CRMLead(Base):
         comment="new_lead|qualified|quoted|negotiation|won|lost",
     )
     assigned_to: Mapped[uuid.UUID | None] = mapped_column(
-        ForeignKey("users.id", ondelete="CASCADE"), nullable=True
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
     )
     source: Mapped[str | None] = mapped_column(
         String(30),
@@ -69,7 +69,7 @@ class CRMContact(Base):
         server_default=text("gen_random_uuid()"),
     )
     tenant_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("tenants.id", ondelete="CASCADE")
+        ForeignKey("tenants.id", ondelete="CASCADE"), index=True
     )
     name: Mapped[str] = mapped_column(String(200))
     company: Mapped[str | None] = mapped_column(String(200), nullable=True)
@@ -98,13 +98,13 @@ class CRMActivity(Base):
         server_default=text("gen_random_uuid()"),
     )
     tenant_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("tenants.id", ondelete="CASCADE")
+        ForeignKey("tenants.id", ondelete="CASCADE"), index=True
     )
     contact_id: Mapped[uuid.UUID | None] = mapped_column(
-        ForeignKey("crm_contacts.id", ondelete="SET NULL"), nullable=True
+        ForeignKey("crm_contacts.id", ondelete="SET NULL"), nullable=True, index=True
     )
     lead_id: Mapped[uuid.UUID | None] = mapped_column(
-        ForeignKey("crm_leads.id", ondelete="SET NULL"), nullable=True
+        ForeignKey("crm_leads.id", ondelete="SET NULL"), nullable=True, index=True
     )
     activity_type: Mapped[str] = mapped_column(
         String(20), comment="call|email|meeting|note|task"
@@ -118,7 +118,7 @@ class CRMActivity(Base):
         DateTime(timezone=True), nullable=True
     )
     assigned_to: Mapped[uuid.UUID | None] = mapped_column(
-        ForeignKey("users.id", ondelete="CASCADE"), nullable=True
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
     )
 
     created_at: Mapped[datetime] = mapped_column(
@@ -134,11 +134,11 @@ class Quotation(Base):
         server_default=text("gen_random_uuid()"),
     )
     tenant_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("tenants.id", ondelete="CASCADE")
+        ForeignKey("tenants.id", ondelete="CASCADE"), index=True
     )
     ref_number: Mapped[str] = mapped_column(String(30))
     lead_id: Mapped[uuid.UUID | None] = mapped_column(
-        ForeignKey("crm_leads.id", ondelete="SET NULL"), nullable=True
+        ForeignKey("crm_leads.id", ondelete="SET NULL"), nullable=True, index=True
     )
     customer_name: Mapped[str] = mapped_column(String(200))
     board_name: Mapped[str] = mapped_column(String(200))

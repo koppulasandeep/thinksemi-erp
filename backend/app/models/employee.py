@@ -28,10 +28,10 @@ class Employee(Base):
         server_default=text("gen_random_uuid()"),
     )
     tenant_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("tenants.id", ondelete="CASCADE")
+        ForeignKey("tenants.id", ondelete="CASCADE"), index=True
     )
     user_id: Mapped[uuid.UUID | None] = mapped_column(
-        ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
     )
     emp_code: Mapped[str] = mapped_column(String(30))
     name: Mapped[str] = mapped_column(String(200))
@@ -110,10 +110,10 @@ class LeaveBalance(Base):
         server_default=text("gen_random_uuid()"),
     )
     tenant_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("tenants.id", ondelete="CASCADE")
+        ForeignKey("tenants.id", ondelete="CASCADE"), index=True
     )
     employee_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("employees.id", ondelete="CASCADE")
+        ForeignKey("employees.id", ondelete="CASCADE"), index=True
     )
     leave_type: Mapped[str] = mapped_column(
         String(5), comment="EL|CL|SL|ML|PL|CO|LOP"
@@ -142,10 +142,10 @@ class LeaveRequest(Base):
         server_default=text("gen_random_uuid()"),
     )
     tenant_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("tenants.id", ondelete="CASCADE")
+        ForeignKey("tenants.id", ondelete="CASCADE"), index=True
     )
     employee_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("employees.id", ondelete="CASCADE")
+        ForeignKey("employees.id", ondelete="CASCADE"), index=True
     )
     leave_type: Mapped[str] = mapped_column(String(5))
     from_date: Mapped[date] = mapped_column(Date)
@@ -158,7 +158,7 @@ class LeaveRequest(Base):
         comment="draft|pending|approved|rejected|cancelled",
     )
     approved_by: Mapped[uuid.UUID | None] = mapped_column(
-        ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
     )
     approved_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True

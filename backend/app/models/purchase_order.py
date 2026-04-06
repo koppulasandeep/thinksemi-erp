@@ -27,13 +27,13 @@ class PurchaseOrder(Base):
         server_default=text("gen_random_uuid()"),
     )
     tenant_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("tenants.id", ondelete="CASCADE")
+        ForeignKey("tenants.id", ondelete="CASCADE"), index=True
     )
     ref_number: Mapped[str] = mapped_column(
         String(30), comment="e.g. PO-001"
     )
     supplier_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("suppliers.id", ondelete="RESTRICT")
+        ForeignKey("suppliers.id", ondelete="RESTRICT"), index=True
     )
     supplier_name: Mapped[str] = mapped_column(String(200))
     total_items: Mapped[int] = mapped_column(Integer)
@@ -69,10 +69,10 @@ class POLineItem(Base):
         server_default=text("gen_random_uuid()"),
     )
     tenant_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("tenants.id", ondelete="CASCADE")
+        ForeignKey("tenants.id", ondelete="CASCADE"), index=True
     )
     purchase_order_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("purchase_orders.id", ondelete="CASCADE")
+        ForeignKey("purchase_orders.id", ondelete="CASCADE"), index=True
     )
     part_number: Mapped[str] = mapped_column(String(100))
     description: Mapped[str] = mapped_column(String(500))

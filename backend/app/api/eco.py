@@ -142,7 +142,7 @@ def _eco_dict(e: ECO) -> dict:
         "reason": e.reason,
         "impact": e.impact,
         "status": e.status,
-        "requested_by": str(e.requested_by),
+        "requested_by": str(e.requested_by) if e.requested_by else None,
         "approved_by": str(e.approved_by) if e.approved_by else None,
         "approved_at": e.approved_at.isoformat() if e.approved_at else None,
         "implemented_at": e.implemented_at.isoformat() if e.implemented_at else None,

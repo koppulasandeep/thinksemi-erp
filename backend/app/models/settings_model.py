@@ -36,7 +36,7 @@ class SystemSetting(Base):
     value: Mapped[str] = mapped_column(Text)
     category: Mapped[str | None] = mapped_column(String(100), nullable=True)
     updated_by: Mapped[uuid.UUID | None] = mapped_column(
-        ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
     )
 
     created_at: Mapped[datetime] = mapped_column(
@@ -55,7 +55,7 @@ class PayrollConfig(Base):
         server_default=text("gen_random_uuid()"),
     )
     tenant_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("tenants.id", ondelete="CASCADE")
+        ForeignKey("tenants.id", ondelete="CASCADE"), index=True
     )
 
     # PF

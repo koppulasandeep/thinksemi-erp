@@ -27,7 +27,7 @@ class SalesOrder(Base):
         server_default=text("gen_random_uuid()"),
     )
     tenant_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("tenants.id", ondelete="CASCADE")
+        ForeignKey("tenants.id", ondelete="CASCADE"), index=True
     )
     ref_number: Mapped[str] = mapped_column(
         String(30), comment="e.g. SO-001"
@@ -35,7 +35,7 @@ class SalesOrder(Base):
     customer_name: Mapped[str] = mapped_column(String(200))
     customer_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("crm_contacts.id", ondelete="SET NULL", use_alter=True),
-        nullable=True,
+        nullable=True, index=True,
     )
     board_name: Mapped[str] = mapped_column(String(200))
     quantity: Mapped[int] = mapped_column(Integer)
@@ -87,10 +87,10 @@ class SOLineItem(Base):
         server_default=text("gen_random_uuid()"),
     )
     tenant_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("tenants.id", ondelete="CASCADE")
+        ForeignKey("tenants.id", ondelete="CASCADE"), index=True
     )
     sales_order_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("sales_orders.id", ondelete="CASCADE")
+        ForeignKey("sales_orders.id", ondelete="CASCADE"), index=True
     )
     description: Mapped[str] = mapped_column(String(500))
     quantity: Mapped[int] = mapped_column(Integer)
@@ -109,10 +109,10 @@ class SOPaymentMilestone(Base):
         server_default=text("gen_random_uuid()"),
     )
     tenant_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("tenants.id", ondelete="CASCADE")
+        ForeignKey("tenants.id", ondelete="CASCADE"), index=True
     )
     sales_order_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("sales_orders.id", ondelete="CASCADE")
+        ForeignKey("sales_orders.id", ondelete="CASCADE"), index=True
     )
     label: Mapped[str] = mapped_column(
         String(100), comment='e.g. "50% Advance"'
@@ -142,10 +142,10 @@ class DeliverySchedule(Base):
         server_default=text("gen_random_uuid()"),
     )
     tenant_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("tenants.id", ondelete="CASCADE")
+        ForeignKey("tenants.id", ondelete="CASCADE"), index=True
     )
     sales_order_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("sales_orders.id", ondelete="CASCADE")
+        ForeignKey("sales_orders.id", ondelete="CASCADE"), index=True
     )
     batch_label: Mapped[str] = mapped_column(String(50))
     quantity: Mapped[int] = mapped_column(Integer)

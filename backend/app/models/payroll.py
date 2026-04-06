@@ -25,7 +25,7 @@ class PayrollBatch(Base):
         server_default=text("gen_random_uuid()"),
     )
     tenant_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("tenants.id", ondelete="CASCADE")
+        ForeignKey("tenants.id", ondelete="CASCADE"), index=True
     )
     ref_number: Mapped[str] = mapped_column(String(30))
     month: Mapped[int] = mapped_column(Integer, comment="1-12")
@@ -52,10 +52,10 @@ class PayrollBatch(Base):
         comment="draft|submitted|under_review|approved|payment_initiated|paid|rejected",
     )
     submitted_by: Mapped[uuid.UUID | None] = mapped_column(
-        ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
     )
     approved_by: Mapped[uuid.UUID | None] = mapped_column(
-        ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
     )
 
     created_at: Mapped[datetime] = mapped_column(
@@ -74,13 +74,13 @@ class PayrollEmployee(Base):
         server_default=text("gen_random_uuid()"),
     )
     tenant_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("tenants.id", ondelete="CASCADE")
+        ForeignKey("tenants.id", ondelete="CASCADE"), index=True
     )
     batch_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("payroll_batches.id", ondelete="CASCADE")
+        ForeignKey("payroll_batches.id", ondelete="CASCADE"), index=True
     )
     employee_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("employees.id", ondelete="CASCADE")
+        ForeignKey("employees.id", ondelete="CASCADE"), index=True
     )
 
     # Earnings

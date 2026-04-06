@@ -180,7 +180,7 @@ def _ncr_dict(n: NCR) -> dict:
         "defect_type": n.defect_type, "severity": n.severity,
         "quantity_affected": n.quantity_affected, "root_cause": n.root_cause,
         "containment_action": n.containment_action, "status": n.status,
-        "reported_by": str(n.reported_by),
+        "reported_by": str(n.reported_by) if n.reported_by else None,
         "assigned_to": str(n.assigned_to) if n.assigned_to else None,
         "created_at": n.created_at.isoformat() if n.created_at else None,
     }

@@ -27,7 +27,7 @@ class BOMItem(Base):
         server_default=text("gen_random_uuid()"),
     )
     tenant_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("tenants.id", ondelete="CASCADE")
+        ForeignKey("tenants.id", ondelete="CASCADE"), index=True
     )
     board_name: Mapped[str] = mapped_column(String(200))
     revision: Mapped[str] = mapped_column(
@@ -72,7 +72,7 @@ class BOMRevision(Base):
         server_default=text("gen_random_uuid()"),
     )
     tenant_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("tenants.id", ondelete="CASCADE")
+        ForeignKey("tenants.id", ondelete="CASCADE"), index=True
     )
     board_name: Mapped[str] = mapped_column(String(200))
     revision: Mapped[str] = mapped_column(String(10))
@@ -95,7 +95,7 @@ class BOMAlternate(Base):
         server_default=text("gen_random_uuid()"),
     )
     tenant_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("tenants.id", ondelete="CASCADE")
+        ForeignKey("tenants.id", ondelete="CASCADE"), index=True
     )
     primary_part_number: Mapped[str] = mapped_column(String(100))
     alternate_part_number: Mapped[str] = mapped_column(String(100))

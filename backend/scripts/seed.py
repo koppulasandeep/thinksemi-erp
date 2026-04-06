@@ -65,6 +65,7 @@ def seed():
         db.flush()
 
         db.add(PayrollConfig(tenant_id=tid))
+        today = date.today()
 
         # --- Employees ---
         user_objs = db.query(User).filter(User.tenant_id == tid).all()
@@ -200,7 +201,6 @@ def seed():
             db.add(CRMLead(tenant_id=tid, **lead))
 
         # --- Sales Orders with Line Items + Payment Milestones ---
-        today = date.today()
         so_data = [
             {"ref_number": "SO-001", "customer_name": "Bosch India", "board_name": "ECU-X500", "quantity": 5000, "unit_price": 450, "status": "production", "priority": "high", "payment_status": "partial"},
             {"ref_number": "SO-002", "customer_name": "Continental AG", "board_name": "ADAS-PRO", "quantity": 2000, "unit_price": 800, "status": "confirmed", "priority": "high", "payment_status": "pending"},

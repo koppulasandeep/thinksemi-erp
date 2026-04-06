@@ -26,13 +26,13 @@ class Shipment(Base):
         server_default=text("gen_random_uuid()"),
     )
     tenant_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("tenants.id", ondelete="CASCADE")
+        ForeignKey("tenants.id", ondelete="CASCADE"), index=True
     )
     ref_number: Mapped[str] = mapped_column(
         String(30), comment="e.g. SH-001"
     )
     sales_order_id: Mapped[uuid.UUID | None] = mapped_column(
-        ForeignKey("sales_orders.id", ondelete="SET NULL"), nullable=True
+        ForeignKey("sales_orders.id", ondelete="SET NULL"), nullable=True, index=True
     )
     customer_name: Mapped[str] = mapped_column(String(200))
     board_count: Mapped[int] = mapped_column(Integer)

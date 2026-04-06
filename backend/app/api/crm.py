@@ -129,7 +129,7 @@ def _lead_dict(l: CRMLead) -> dict:
         "value": float(l.value) if l.value else None,
         "probability": l.probability,
         "stage": l.stage,
-        "assigned_to": str(l.assigned_to),
+        "assigned_to": str(l.assigned_to) if l.assigned_to else None,
         "source": l.source,
         "notes": l.notes,
         "created_at": l.created_at.isoformat() if l.created_at else None,

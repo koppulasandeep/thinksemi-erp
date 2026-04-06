@@ -25,7 +25,7 @@ class ProductionLine(Base):
         server_default=text("gen_random_uuid()"),
     )
     tenant_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("tenants.id", ondelete="CASCADE")
+        ForeignKey("tenants.id", ondelete="CASCADE"), index=True
     )
     name: Mapped[str] = mapped_column(String(100))
     line_type: Mapped[str] = mapped_column(
@@ -39,7 +39,7 @@ class ProductionLine(Base):
     )
     current_wo_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("work_orders.id", ondelete="SET NULL", use_alter=True),
-        nullable=True,
+        nullable=True, index=True,
     )
     oee: Mapped[float] = mapped_column(
         Numeric(5, 2), server_default=text("0")
@@ -64,21 +64,21 @@ class WorkOrder(Base):
         server_default=text("gen_random_uuid()"),
     )
     tenant_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("tenants.id", ondelete="CASCADE")
+        ForeignKey("tenants.id", ondelete="CASCADE"), index=True
     )
     ref_number: Mapped[str] = mapped_column(
         String(30), comment="e.g. WO-001"
     )
     sales_order_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("sales_orders.id", ondelete="SET NULL"),
-        nullable=True,
+        nullable=True, index=True,
     )
     board_name: Mapped[str] = mapped_column(String(200))
     customer_name: Mapped[str] = mapped_column(String(200))
     quantity: Mapped[int] = mapped_column(Integer)
     line_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("production_lines.id", ondelete="SET NULL"),
-        nullable=True,
+        nullable=True, index=True,
     )
     progress: Mapped[int] = mapped_column(
         Integer, server_default=text("0"), comment="0-100"
@@ -119,10 +119,10 @@ class RouteStep(Base):
         server_default=text("gen_random_uuid()"),
     )
     tenant_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("tenants.id", ondelete="CASCADE")
+        ForeignKey("tenants.id", ondelete="CASCADE"), index=True
     )
     work_order_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("work_orders.id", ondelete="CASCADE")
+        ForeignKey("work_orders.id", ondelete="CASCADE"), index=True
     )
     step_name: Mapped[str] = mapped_column(String(100))
     sequence_order: Mapped[int] = mapped_column(Integer)
