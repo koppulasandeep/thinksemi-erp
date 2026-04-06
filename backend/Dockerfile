@@ -14,6 +14,7 @@ COPY . .
 EXPOSE 8000
 
 CMD alembic upgrade head && \
+    python -c "from app.core.database import Base, engine; import app.models; Base.metadata.create_all(bind=engine)" && \
     python -m scripts.seed 2>/dev/null; \
     gunicorn app.main:app \
       --worker-class uvicorn.workers.UvicornWorker \
