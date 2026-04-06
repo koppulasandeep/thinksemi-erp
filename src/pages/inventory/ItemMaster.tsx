@@ -97,8 +97,6 @@ export function ItemMaster() {
     draft: "bg-gray-100 text-gray-600",
   }
 
-  if (loading) return <LoadingSpinner text="Loading items..." />
-
   return (
     <div className="space-y-6">
       <PageHeader
@@ -139,7 +137,7 @@ export function ItemMaster() {
       </div>
 
       {/* Table */}
-      <Card>
+      {loading ? <LoadingSpinner text="Loading items..." /> : <Card>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -174,7 +172,7 @@ export function ItemMaster() {
             </tbody>
           </table>
         </div>
-      </Card>
+      </Card>}
 
       {/* Add Item Dialog */}
       {showDialog && (

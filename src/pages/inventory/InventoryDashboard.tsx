@@ -67,8 +67,6 @@ export function InventoryDashboard() {
     ok: "",
   }
 
-  if (loading) return <LoadingSpinner text="Loading inventory..." />
-
   return (
     <div className="space-y-6">
       <PageHeader
@@ -146,7 +144,7 @@ export function InventoryDashboard() {
       </div>
 
       {/* Table */}
-      <Card>
+      {loading ? <LoadingSpinner text="Loading inventory..." /> : <Card>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -217,7 +215,7 @@ export function InventoryDashboard() {
             {filtered.length} item{filtered.length !== 1 ? "s" : ""}
           </p>
         </div>
-      </Card>
+      </Card>}
     </div>
   )
 }

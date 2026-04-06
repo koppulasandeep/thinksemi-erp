@@ -76,17 +76,16 @@ export function HRDashboard() {
       />
 
       {/* Tab Navigation */}
-      <div className="flex items-center gap-1 border-b">
+      <div className="flex items-center gap-1 bg-muted/50 p-1 rounded-lg w-fit">
         {tabs.map((tab) => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
             className={cn(
-              "px-4 py-2 text-sm font-medium transition-colors relative cursor-pointer",
-              "hover:text-foreground",
+              "px-4 py-2 text-sm font-medium transition-all rounded-lg cursor-pointer",
               activeTab === tab.id
-                ? "text-foreground"
-                : "text-muted-foreground"
+                ? "bg-primary text-primary-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground hover:bg-accent"
             )}
           >
             {tab.label}
@@ -94,9 +93,6 @@ export function HRDashboard() {
               <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-semibold text-destructive-foreground">
                 {pendingCount}
               </span>
-            )}
-            {activeTab === tab.id && (
-              <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-t" />
             )}
           </button>
         ))}

@@ -91,8 +91,6 @@ export function Holidays() {
     }
   }
 
-  if (loading) return <LoadingSpinner text="Loading holidays..." />
-
   return (
     <div className="space-y-6">
       <PageHeader
@@ -124,7 +122,7 @@ export function Holidays() {
       </div>
 
       {/* Table */}
-      <Card>
+      {loading ? <LoadingSpinner text="Loading holidays..." /> : <Card>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -165,7 +163,7 @@ export function Holidays() {
             </tbody>
           </table>
         </div>
-      </Card>
+      </Card>}
 
       {/* Add Holiday Dialog */}
       {showDialog && (

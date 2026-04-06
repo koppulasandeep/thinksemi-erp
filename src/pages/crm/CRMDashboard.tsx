@@ -104,23 +104,21 @@ export function CRMDashboard() {
       </div>
 
       {/* Tabs */}
-      <div className="border-b">
-        <nav className="-mb-px flex gap-6">
-          {tabs.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={cn(
-                "pb-3 text-sm font-medium transition-colors border-b-2",
-                activeTab === tab.id
-                  ? "border-primary text-foreground"
-                  : "border-transparent text-muted-foreground hover:text-foreground hover:border-border"
-              )}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </nav>
+      <div className="flex items-center gap-1 bg-muted/50 p-1 rounded-lg w-fit">
+        {tabs.map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            className={cn(
+              "px-4 py-2 text-sm font-medium transition-all rounded-lg cursor-pointer",
+              activeTab === tab.id
+                ? "bg-primary text-primary-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground hover:bg-accent"
+            )}
+          >
+            {tab.label}
+          </button>
+        ))}
       </div>
 
       {/* Tab Content */}

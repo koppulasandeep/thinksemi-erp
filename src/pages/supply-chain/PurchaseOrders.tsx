@@ -137,16 +137,16 @@ export function PurchaseOrders() {
       </div>
 
       {/* Tabs */}
-      <div className="flex items-center gap-1 border-b">
+      <div className="flex items-center gap-1 bg-muted/50 p-1 rounded-lg w-fit">
         {tabs.map((tab) => (
           <button
             key={tab.key}
             onClick={() => setActiveTab(tab.key)}
             className={cn(
-              "px-3 py-2 text-sm font-medium transition-colors border-b-2 -mb-px",
+              "px-4 py-2 text-sm font-medium transition-all rounded-lg cursor-pointer",
               activeTab === tab.key
-                ? "border-primary text-primary"
-                : "border-transparent text-muted-foreground hover:text-foreground"
+                ? "bg-primary text-primary-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground hover:bg-accent"
             )}
           >
             {tab.label}
@@ -155,7 +155,7 @@ export function PurchaseOrders() {
                 className={cn(
                   "ml-1.5 text-xs px-1.5 py-0.5 rounded-full",
                   activeTab === tab.key
-                    ? "bg-primary/10 text-primary"
+                    ? "bg-white/20 text-primary-foreground"
                     : "bg-muted text-muted-foreground"
                 )}
               >

@@ -100,8 +100,10 @@ function AllECOsTab({ search, setSearch }: { search: string; setSearch: (s: stri
                 key={tab.id}
                 onClick={() => setStatusFilter(tab.id)}
                 className={cn(
-                  "rounded-md px-3 py-1.5 text-xs font-medium transition-colors cursor-pointer",
-                  statusFilter === tab.id ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"
+                  "px-3 py-1.5 text-xs font-medium transition-all rounded-md cursor-pointer",
+                  statusFilter === tab.id
+                    ? "bg-accent text-foreground shadow-sm border border-border"
+                    : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
                 )}
               >
                 {tab.label}
@@ -492,7 +494,7 @@ export function ECOList() {
       </div>
 
       {/* Highlighted Tab Bar */}
-      <div className="flex items-center gap-1 p-1 rounded-xl bg-muted/50 border">
+      <div className="flex items-center gap-1 bg-muted/50 p-1 rounded-lg w-fit">
         {listTabs.map((tab) => {
           const Icon = tab.icon
           const isActive = activeTab === tab.id
@@ -503,8 +505,8 @@ export function ECOList() {
               className={cn(
                 "flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-all cursor-pointer whitespace-nowrap",
                 isActive
-                  ? "bg-teal-600 text-white shadow-md shadow-teal-500/25"
-                  : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground hover:bg-accent"
               )}
             >
               <Icon className="h-4 w-4" />

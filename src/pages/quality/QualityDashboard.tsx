@@ -1232,7 +1232,7 @@ export function QualityDashboard() {
       />
 
       {/* Tabs */}
-      <div className="flex items-center gap-2 flex-wrap">
+      <div className="flex items-center gap-1 bg-muted/50 p-1 rounded-lg w-fit">
         {tabs.map((tab) => {
           const Icon = tab.icon
           return (
@@ -1240,10 +1240,10 @@ export function QualityDashboard() {
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}
               className={cn(
-                "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all",
+                "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all cursor-pointer",
                 activeTab === tab.key
-                  ? "bg-teal-600 text-white shadow-md"
-                  : "bg-white text-slate-600 border hover:bg-teal-50"
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground hover:bg-accent"
               )}
             >
               <Icon className="h-4 w-4" />

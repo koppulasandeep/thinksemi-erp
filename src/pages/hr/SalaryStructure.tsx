@@ -105,8 +105,6 @@ export function SalaryStructure() {
     draft: "bg-gray-100 text-gray-600",
   }
 
-  if (loading) return <LoadingSpinner text="Loading employees..." />
-
   return (
     <div className="space-y-6">
       <PageHeader title="Salary Structure" description="Manage employee CTC breakdown and revision history" />
@@ -114,7 +112,7 @@ export function SalaryStructure() {
       {/* Employee Selector */}
       <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
         <label className="text-sm font-medium whitespace-nowrap">Select Employee</label>
-        <select
+        {loading ? <LoadingSpinner text="Loading employees..." /> : <select
           className="border rounded-md px-3 py-2 text-sm bg-background w-full sm:w-80"
           value={selectedEmpId}
           onChange={(e) => setSelectedEmpId(e.target.value)}
@@ -125,7 +123,7 @@ export function SalaryStructure() {
               {emp.name} ({emp.employee_id})
             </option>
           ))}
-        </select>
+        </select>}
         {isAdmin && selectedEmpId && (
           <Button size="sm" onClick={() => setShowForm(true)}>
             <TrendingUp className="h-4 w-4 mr-1" /> Set / Revise Salary

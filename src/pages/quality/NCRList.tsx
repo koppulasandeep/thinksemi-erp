@@ -144,8 +144,6 @@ export function NCRList() {
     (n) => n.severity === "critical" && n.status !== "completed"
   ).length
 
-  if (loading) return <LoadingSpinner text="Loading NCRs..." />
-
   return (
     <div className="space-y-6">
       <PageHeader
@@ -180,7 +178,7 @@ export function NCRList() {
       </div>
 
       {/* Table */}
-      <Card>
+      {loading ? <LoadingSpinner text="Loading NCRs..." /> : <Card>
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <CardTitle className="text-sm font-medium">
@@ -305,7 +303,7 @@ export function NCRList() {
             </div>
           )}
         </CardContent>
-      </Card>
+      </Card>}
     </div>
   )
 }

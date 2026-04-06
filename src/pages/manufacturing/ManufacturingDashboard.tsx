@@ -59,7 +59,7 @@ export function ManufacturingDashboard() {
       />
 
       {/* Tab Navigation */}
-      <div className="flex items-center gap-2 flex-wrap">
+      <div className="flex items-center gap-1 bg-muted/50 p-1 rounded-lg w-fit">
         {dashTabs.map((tab) => {
           const Icon = tab.icon
           return (
@@ -67,10 +67,10 @@ export function ManufacturingDashboard() {
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}
               className={cn(
-                "inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all",
+                "inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all cursor-pointer",
                 activeTab === tab.key
-                  ? "bg-teal-600 text-white shadow-md shadow-teal-600/25"
-                  : "bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground"
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground hover:bg-accent"
               )}
             >
               <Icon className="h-4 w-4" />
