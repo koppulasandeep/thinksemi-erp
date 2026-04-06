@@ -29,6 +29,9 @@ class Supplier(Base):
         ForeignKey("tenants.id", ondelete="CASCADE"), index=True
     )
     name: Mapped[str] = mapped_column(String(200))
+    supplier_group_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("supplier_groups.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     location: Mapped[str] = mapped_column(String(200))
     category: Mapped[str] = mapped_column(
         String(30),

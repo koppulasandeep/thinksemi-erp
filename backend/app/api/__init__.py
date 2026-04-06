@@ -19,6 +19,7 @@ from app.api.rma import router as rma_router
 from app.api.finance import router as finance_router
 from app.api.portal import router as portal_router
 from app.api.settings_routes import router as settings_router
+from app.api.item_master import router as item_master_router
 
 api_router = APIRouter(prefix="/api/v1")
 
@@ -39,3 +40,4 @@ api_router.include_router(rma_router, prefix="/rma")
 api_router.include_router(finance_router, prefix="/finance")
 api_router.include_router(portal_router, prefix="/portal")
 api_router.include_router(settings_router, prefix="/settings")
+api_router.include_router(item_master_router, prefix="/item-master")

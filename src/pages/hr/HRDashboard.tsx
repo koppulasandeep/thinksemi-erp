@@ -12,12 +12,18 @@ import { LeaveManagement } from "./LeaveManagement"
 import { Payroll } from "./Payroll"
 import { Performance } from "./Performance"
 import { Compliance } from "./Compliance"
+import { SalaryStructure } from "./SalaryStructure"
+import { TaxDeclarations } from "./TaxDeclarations"
+import { Holidays } from "./Holidays"
 
 const tabs = [
   { id: "overview", label: "Overview" },
   { id: "attendance", label: "Attendance" },
   { id: "leave", label: "Leave" },
   { id: "payroll", label: "Payroll" },
+  { id: "salary", label: "Salary" },
+  { id: "tax", label: "Tax Declarations" },
+  { id: "holidays", label: "Holidays" },
   { id: "compliance", label: "Compliance" },
   { id: "performance", label: "Performance" },
 ] as const
@@ -101,6 +107,9 @@ export function HRDashboard() {
       {activeTab === "attendance" && <Attendance />}
       {activeTab === "leave" && <LeaveManagement />}
       {activeTab === "payroll" && <Payroll />}
+      {activeTab === "salary" && <SalaryStructure />}
+      {activeTab === "tax" && <TaxDeclarations />}
+      {activeTab === "holidays" && <Holidays />}
       {activeTab === "compliance" && <Compliance />}
       {activeTab === "performance" && <Performance />}
     </div>

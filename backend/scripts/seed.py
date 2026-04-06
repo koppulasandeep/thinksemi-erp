@@ -11,6 +11,9 @@ from sqlalchemy.orm import Session
 
 from app.core.database import SessionLocal
 from app.models import *  # noqa
+from app.models.item_master import ItemGroup, ItemMaster, SupplierGroup
+from app.models.salary import SalaryStructure, TaxDeclaration
+from app.models.holiday import Holiday, LeaveType, LeavePolicy
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -366,6 +369,119 @@ def seed():
         for r in rma_data:
             db.add(RMA(tenant_id=tid, **r))
 
+        # --- Item Groups ---
+        ig_map = {}
+        for name, desc in [("ICs", "Integrated Circuits"), ("Passives", "Resistors, Capacitors, Inductors"), ("Connectors", "Board-to-board, wire-to-board"), ("Mechanicals", "Heatsinks, enclosures, screws"), ("PCB", "Bare PCBs and substrates"), ("Packaging", "ESD bags, trays, boxes")]:
+            ig = ItemGroup(tenant_id=tid, name=name, description=desc)
+            db.add(ig)
+            ig_map[name] = ig
+        db.flush()
+        # Sub-groups
+        for parent, children in [("ICs", ["Microcontrollers", "Transceivers", "Regulators", "Memory"]), ("Passives", ["Resistors", "Capacitors", "Crystals"])]:
+            for child in children:
+                db.add(ItemGroup(tenant_id=tid, name=child, parent_id=ig_map[parent].id))
+
+        # --- Item Master Entries ---
+        for pn, desc, grp, mfr, pkg, hsn in [
+            ("STM32F407VGT6", "MCU ARM Cortex-M4 168MHz", "ICs", "STMicroelectronics", "LQFP-100", "8542"),
+            ("TJA1050T", "CAN Transceiver High Speed", "ICs", "NXP", "SO-8", "8542"),
+            ("RC0402JR-07100KL", "100K Ohm 0402 5%", "Passives", "Yageo", "0402", "8533"),
+            ("GRM155R71C104KA88D", "100nF MLCC 0402 16V", "Passives", "Murata", "0402", "8532"),
+            ("TDA4VM", "Vision SoC BGA-841", "ICs", "TI", "BGA-841", "8542"),
+            ("LM2596S-5.0", "5V 3A Step-Down Regulator", "ICs", "TI", "TO-263", "8542"),
+            ("5-534206-4", "34-pin Automotive Connector", "Connectors", "TE Connectivity", "THT", "8536"),
+            ("MT41K256M16TW", "4Gb DDR3L SDRAM", "ICs", "Micron", "BGA-96", "8542"),
+        ]:
+            db.add(ItemMaster(tenant_id=tid, part_number=pn, description=desc, item_group_id=ig_map[grp].id, manufacturer=mfr, package=pkg, hsn_code=hsn))
+
+        # --- Supplier Groups ---
+        sg_data = [
+            SupplierGroup(tenant_id=tid, name="Strategic", description="Top-tier partners with long-term contracts", priority=1),
+            SupplierGroup(tenant_id=tid, name="Preferred", description="Approved vendors with good track record", priority=2),
+            SupplierGroup(tenant_id=tid, name="Approved", description="Qualified vendors for spot purchases", priority=3),
+        ]
+        for sg in sg_data:
+            db.add(sg)
+
+        # --- Salary Structures ---
+        salary_ctcs = {
+            "EMP-001": 1800000, "EMP-002": 1200000, "EMP-003": 900000, "EMP-004": 1000000,
+            "EMP-005": 1100000, "EMP-006": 780000, "EMP-007": 850000, "EMP-008": 750000,
+            "EMP-009": 720000, "EMP-010": 360000,
+        }
+        for code, eid in emp_ids.items():
+            ctc = salary_ctcs.get(code, 360000)
+            basic = ctc * 0.40
+            hra = basic * 0.50
+            db.add(SalaryStructure(
+                tenant_id=tid, employee_id=eid, annual_ctc=ctc,
+                basic=basic, hra=hra,
+                special_allowance=ctc - basic - hra - 19200 - 15000,
+                conveyance=19200, medical=15000,
+                effective_from=date(2026, 1, 1),
+            ))
+
+        # --- Tax Declarations ---
+        for code, regime, s80c, s80d in [("EMP-001", "old", 150000, 25000), ("EMP-002", "new", 0, 0), ("EMP-004", "old", 100000, 15000)]:
+            db.add(TaxDeclaration(
+                tenant_id=tid, employee_id=emp_ids[code],
+                financial_year="2025-26", regime=regime,
+                section_80c=s80c, section_80d=s80d,
+            ))
+
+        # --- Holidays 2026 ---
+        holidays_2026 = [
+            (date(2026, 1, 14), "Pongal", "state"),
+            (date(2026, 1, 15), "Thiruvalluvar Day", "state"),
+            (date(2026, 1, 26), "Republic Day", "national"),
+            (date(2026, 3, 17), "Holi", "national"),
+            (date(2026, 4, 6), "Ugadi", "state"),
+            (date(2026, 4, 14), "Tamil New Year", "state"),
+            (date(2026, 5, 1), "May Day", "national"),
+            (date(2026, 8, 15), "Independence Day", "national"),
+            (date(2026, 9, 2), "Vinayagar Chaturthi", "state"),
+            (date(2026, 10, 2), "Gandhi Jayanti", "national"),
+            (date(2026, 10, 20), "Ayudha Pooja", "state"),
+            (date(2026, 10, 21), "Vijayadashami", "national"),
+            (date(2026, 11, 10), "Diwali", "national"),
+            (date(2026, 12, 25), "Christmas", "national"),
+            (date(2026, 4, 10), "Good Friday", "optional"),
+        ]
+        for hdate, hname, htype in holidays_2026:
+            db.add(Holiday(tenant_id=tid, date=hdate, name=hname, type=htype, year=2026))
+
+        # --- Leave Types ---
+        lt_map = {}
+        for code, name, desc in [
+            ("EL", "Earned Leave", "Paid leave accrued monthly at 1.25 days/month"),
+            ("CL", "Casual Leave", "Short-duration personal leave, no carry-forward"),
+            ("SL", "Sick Leave", "Medical leave with carry-forward"),
+            ("ML", "Maternity Leave", "26 weeks statutory maternity leave"),
+            ("PL", "Paternity Leave", "15 days paternity leave"),
+            ("CO", "Compensatory Off", "Off granted for working on holidays/weekends"),
+            ("LOP", "Loss of Pay", "Unpaid leave when balance exhausted"),
+        ]:
+            lt = LeaveType(tenant_id=tid, code=code, name=name, description=desc)
+            db.add(lt)
+            lt_map[code] = lt
+        db.flush()
+
+        # --- Leave Policies ---
+        for code, entitled, cf, cf_max, max_consec, notice, gender in [
+            ("EL", 15, True, 30, 5, 3, "all"),
+            ("CL", 8, False, 0, 3, 0, "all"),
+            ("SL", 10, True, 20, None, 0, "all"),
+            ("ML", 182, False, 0, None, 30, "female"),
+            ("PL", 15, False, 0, None, 7, "male"),
+            ("CO", 5, False, 0, 2, 0, "all"),
+        ]:
+            db.add(LeavePolicy(
+                tenant_id=tid, leave_type_id=lt_map[code].id,
+                entitled_days=entitled, carry_forward_enabled=cf,
+                carry_forward_max=cf_max, max_consecutive_days=max_consec,
+                min_notice_days=notice, applicable_gender=gender,
+            ))
+
         db.commit()
         print(f"\nSeed complete!")
         print(f"  11 users, 10 employees, 6 suppliers, 3 lines, 5 equipment")
@@ -374,6 +490,9 @@ def seed():
         print(f"  3 NPI projects, 2 ECOs, 3 NCRs")
         print(f"  3 invoices, 2 vendor bills, 2 shipments, 1 RMA")
         print(f"  Attendance, leave balances, leave requests, 1 payroll batch")
+        print(f"  6 item groups + sub-groups, 8 item master, 3 supplier groups")
+        print(f"  10 salary structures, 3 tax declarations, 15 holidays")
+        print(f"  7 leave types, 6 leave policies")
         print(f"Tenant ID: {tid}")
 
     except Exception as e:

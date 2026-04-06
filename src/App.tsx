@@ -39,6 +39,10 @@ import { FinanceDashboard } from "@/pages/finance/FinanceDashboard"
 import { SettingsPage } from "@/pages/settings/SettingsPage"
 import { PayrollConfig } from "@/pages/settings/PayrollConfig"
 import { UserManual } from "@/pages/UserManual"
+import { ItemMaster } from "@/pages/inventory/ItemMaster"
+import { SalaryStructure } from "@/pages/hr/SalaryStructure"
+import { TaxDeclarations } from "@/pages/hr/TaxDeclarations"
+import { Holidays } from "@/pages/hr/Holidays"
 
 export default function App() {
   return (
@@ -60,6 +64,9 @@ export default function App() {
           <Route path="/hr/payroll" element={<Payroll />} />
           <Route path="/hr/performance" element={<Performance />} />
           <Route path="/hr/compliance" element={<Compliance />} />
+          <Route path="/hr/salary" element={<SalaryStructure />} />
+          <Route path="/hr/tax-declarations" element={<TaxDeclarations />} />
+          <Route path="/hr/holidays" element={<Holidays />} />
 
           {/* Finance */}
           <Route path="/finance" element={<FinanceDashboard />} />
@@ -89,6 +96,7 @@ export default function App() {
 
           {/* Inventory & MSL */}
           <Route path="/inventory" element={<InventoryDashboard />} />
+          <Route path="/inventory/item-master" element={<ItemMaster />} />
           <Route path="/msl" element={<MSLDashboard />} />
 
           {/* Manufacturing */}

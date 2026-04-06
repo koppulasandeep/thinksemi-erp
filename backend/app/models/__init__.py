@@ -21,6 +21,9 @@ from app.models.rma import RMA
 from app.models.finance import Invoice, VendorBill
 from app.models.settings_model import SystemSetting, PayrollConfig
 from app.models.traceability import BoardTrace, ComponentTrace
+from app.models.item_master import ItemGroup, ItemMaster, SupplierGroup
+from app.models.salary import SalaryStructure, TaxDeclaration
+from app.models.holiday import Holiday, LeaveType, LeavePolicy
 
 __all__ = [
     "Tenant",
@@ -65,4 +68,12 @@ __all__ = [
     "PayrollConfig",
     "BoardTrace",
     "ComponentTrace",
+    "ItemGroup",
+    "ItemMaster",
+    "SupplierGroup",
+    "SalaryStructure",
+    "TaxDeclaration",
+    "Holiday",
+    "LeaveType",
+    "LeavePolicy",
 ]

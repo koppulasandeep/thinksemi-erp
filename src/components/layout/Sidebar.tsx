@@ -41,6 +41,8 @@ const navGroups = [
     label: "People",
     items: [
       { to: "/hr", icon: Users, label: "HR & Payroll" },
+      { to: "/hr/salary", icon: Users, label: "Salary Structure" },
+      { to: "/hr/holidays", icon: Users, label: "Holidays" },
     ],
   },
   {
@@ -67,6 +69,7 @@ const navGroups = [
     items: [
       { to: "/supply-chain", icon: ShoppingCart, label: "Supply Chain" },
       { to: "/inventory", icon: Package, label: "Inventory" },
+      { to: "/inventory/item-master", icon: Package, label: "Item Master" },
       { to: "/msl", icon: Droplets, label: "MSL Control" },
     ],
   },

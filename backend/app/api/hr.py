@@ -18,6 +18,9 @@ from app.models.user import User
 from app.models.employee import Employee, Attendance, LeaveBalance, LeaveRequest
 from app.models.payroll import PayrollBatch, PayrollEmployee
 from app.models.settings_model import PayrollConfig
+from app.models.salary import SalaryStructure, TaxDeclaration
+from app.models.holiday import Holiday, LeaveType, LeavePolicy
+from app.services.tds import compute_tds_new_regime, compute_tds_old_regime, compute_overtime, compare_regimes
 
 router = APIRouter(tags=["hr"])
 
@@ -388,12 +391,28 @@ def create_payroll_batch(
         days_absent = sum(1 for a in att_records if a.status == "A")
         ot_hours = sum(float(a.overtime_hours or 0) for a in att_records)
 
-        # Simple salary calculation (assuming monthly CTC stored somewhere; use basic as proxy)
-        ctc_monthly = 25000  # default; in production this comes from employee salary table
-        basic = round(ctc_monthly * basic_pct, 2)
-        hra = round(basic * hra_pct, 2)
-        special = round(ctc_monthly - basic - hra - conveyance - medical, 2)
-        gross = basic + hra + special + conveyance + medical
+        # Look up salary structure for employee
+        salary = (
+            db.query(SalaryStructure)
+            .filter(SalaryStructure.tenant_id == tenant_id, SalaryStructure.employee_id == emp.id, SalaryStructure.status == "active")
+            .first()
+        )
+        if salary:
+            ctc_monthly = float(salary.annual_ctc) / 12
+            basic = float(salary.basic) / 12
+            hra = float(salary.hra) / 12
+            special = float(salary.special_allowance) / 12
+            conv = float(salary.conveyance) / 12
+            med = float(salary.medical) / 12
+        else:
+            ctc_monthly = 25000
+            basic = round(ctc_monthly * basic_pct, 2)
+            hra = round(basic * hra_pct, 2)
+            conv = conveyance
+            med = medical
+            special = round(ctc_monthly - basic - hra - conv - med, 2)
+
+        gross = round(basic + hra + special + conv + med, 2)
 
         # Deductions
         pf_emp = round(min(basic, pf_ceiling) * pf_rate, 2)
@@ -401,10 +420,27 @@ def create_payroll_batch(
         esi_emp = round(gross * esi_emp_rate, 2) if gross <= esi_ceiling else 0
         esi_er = round(gross * esi_er_rate, 2) if gross <= esi_ceiling else 0
         professional_tax = 200 if gross > 15000 else 0
-        total_ded = pf_emp + esi_emp + professional_tax
-        net = round(gross - total_ded, 2)
-        ot_pay = round(ot_hours * (basic / 26 / 8) * 1.5, 2) if ot_hours else 0
-        net += ot_pay
+
+        # TDS computation from salary + declarations
+        annual_gross = gross * 12
+        tax_decl = (
+            db.query(TaxDeclaration)
+            .filter(TaxDeclaration.tenant_id == tenant_id, TaxDeclaration.employee_id == emp.id)
+            .order_by(TaxDeclaration.created_at.desc())
+            .first()
+        )
+        if tax_decl and tax_decl.regime == "old":
+            tds_result = compute_tds_old_regime(
+                annual_gross, float(tax_decl.section_80c), float(tax_decl.section_80d),
+                float(tax_decl.hra_exemption), float(tax_decl.home_loan_interest), float(tax_decl.other_deductions),
+            )
+        else:
+            tds_result = compute_tds_new_regime(annual_gross)
+        monthly_tds = tds_result["monthly_tds"]
+
+        total_ded = round(pf_emp + esi_emp + professional_tax + monthly_tds, 2)
+        ot_pay = compute_overtime(basic, ot_hours) if ot_hours else 0
+        net = round(gross - total_ded + ot_pay, 2)
 
         pe = PayrollEmployee(
             tenant_id=tenant_id,
@@ -413,15 +449,15 @@ def create_payroll_batch(
             basic=basic,
             hra=hra,
             special_allowance=max(special, 0),
-            conveyance=conveyance,
-            medical=medical,
+            conveyance=conv,
+            medical=med,
             gross=gross,
             pf_employee=pf_emp,
             pf_employer=pf_er,
             esi_employee=esi_emp,
             esi_employer=esi_er,
             professional_tax=professional_tax,
-            tds=0,
+            tds=monthly_tds,
             total_deductions=total_ded,
             net_pay=net,
             days_worked=days_worked,
@@ -491,3 +527,368 @@ def approve_payroll_batch(
     db.commit()
     db.refresh(batch)
     return {"id": str(batch.id), "status": batch.status}
+
+
+# ─── Payslip Detail ──────────────────────────────────────────────────────
+
+@router.get("/payslip/{batch_id}/{employee_id}")
+def get_payslip(
+    batch_id: uuid.UUID,
+    employee_id: uuid.UUID,
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+    tenant_id: Annotated[uuid.UUID, Depends(get_tenant_id)],
+):
+    pe = (
+        db.query(PayrollEmployee)
+        .filter(PayrollEmployee.tenant_id == tenant_id, PayrollEmployee.batch_id == batch_id, PayrollEmployee.employee_id == employee_id)
+        .first()
+    )
+    if not pe:
+        raise NotFoundError("Payslip", f"{batch_id}/{employee_id}")
+    emp = TenantQuery(db, Employee, tenant_id).get_or_404(employee_id, "Employee")
+    batch = TenantQuery(db, PayrollBatch, tenant_id).get_or_404(batch_id, "PayrollBatch")
+    return {
+        "employee": {"id": str(emp.id), "name": emp.name, "emp_code": emp.emp_code, "department": emp.department, "designation": emp.designation, "pan": emp.pan, "bank_account": emp.bank_account, "bank_name": emp.bank_name},
+        "batch": {"ref_number": batch.ref_number, "month": batch.month, "year": batch.year},
+        "earnings": {"basic": float(pe.basic), "hra": float(pe.hra), "special_allowance": float(pe.special_allowance), "conveyance": float(pe.conveyance), "medical": float(pe.medical), "ot_pay": float(pe.ot_pay), "gross": float(pe.gross)},
+        "deductions": {"pf_employee": float(pe.pf_employee), "esi_employee": float(pe.esi_employee), "professional_tax": float(pe.professional_tax), "tds": float(pe.tds), "total_deductions": float(pe.total_deductions)},
+        "employer_contributions": {"pf_employer": float(pe.pf_employer), "esi_employer": float(pe.esi_employer)},
+        "summary": {"days_worked": float(pe.days_worked), "days_absent": float(pe.days_absent), "ot_hours": float(pe.ot_hours), "net_pay": float(pe.net_pay)},
+    }
+
+
+# ─── Salary Structure ────────────────────────────────────────────────────
+
+@router.get("/salary/{employee_id}")
+def get_salary_structure(
+    employee_id: uuid.UUID,
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+    tenant_id: Annotated[uuid.UUID, Depends(get_tenant_id)],
+):
+    TenantQuery(db, Employee, tenant_id).get_or_404(employee_id, "Employee")
+    structures = (
+        db.query(SalaryStructure)
+        .filter(SalaryStructure.tenant_id == tenant_id, SalaryStructure.employee_id == employee_id)
+        .order_by(SalaryStructure.effective_from.desc())
+        .all()
+    )
+    return {
+        "salary_structures": [
+            {
+                "id": str(s.id), "annual_ctc": float(s.annual_ctc),
+                "basic": float(s.basic), "hra": float(s.hra),
+                "special_allowance": float(s.special_allowance),
+                "conveyance": float(s.conveyance), "medical": float(s.medical),
+                "other_allowances": float(s.other_allowances),
+                "effective_from": str(s.effective_from),
+                "effective_to": str(s.effective_to) if s.effective_to else None,
+                "status": s.status,
+            }
+            for s in structures
+        ]
+    }
+
+
+@router.post("/salary", status_code=201)
+def create_salary_structure(
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(require_role("super_admin", "admin", "hr_manager"))],
+    tenant_id: Annotated[uuid.UUID, Depends(get_tenant_id)],
+    payload: dict = Body(...),
+):
+    emp_id = uuid.UUID(payload["employee_id"])
+    TenantQuery(db, Employee, tenant_id).get_or_404(emp_id, "Employee")
+
+    prev = (
+        db.query(SalaryStructure)
+        .filter(SalaryStructure.tenant_id == tenant_id, SalaryStructure.employee_id == emp_id, SalaryStructure.status == "active")
+        .first()
+    )
+    if prev:
+        prev.status = "revised"
+        prev.effective_to = date.fromisoformat(payload.get("effective_from", str(date.today())))
+
+    annual_ctc = float(payload["annual_ctc"])
+    basic = float(payload.get("basic", annual_ctc * 0.40))
+    hra = float(payload.get("hra", basic * 0.50))
+
+    ss = SalaryStructure(
+        tenant_id=tenant_id, employee_id=emp_id, annual_ctc=annual_ctc,
+        basic=basic, hra=hra,
+        special_allowance=float(payload.get("special_allowance", annual_ctc - basic - hra - 19200 - 15000)),
+        conveyance=float(payload.get("conveyance", 19200)),
+        medical=float(payload.get("medical", 15000)),
+        other_allowances=float(payload.get("other_allowances", 0)),
+        effective_from=date.fromisoformat(payload.get("effective_from", str(date.today()))),
+    )
+    db.add(ss)
+    log_activity(db, tenant_id, current_user.id, f"Set salary for employee {emp_id}: CTC {annual_ctc}", "hr", "salary_structure", ss.id)
+    db.commit()
+    db.refresh(ss)
+    return {"id": str(ss.id), "annual_ctc": float(ss.annual_ctc), "status": ss.status}
+
+
+# ─── Tax Declarations ────────────────────────────────────────────────────
+
+@router.get("/tax-declarations/{employee_id}")
+def get_tax_declarations(
+    employee_id: uuid.UUID,
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+    tenant_id: Annotated[uuid.UUID, Depends(get_tenant_id)],
+    financial_year: str | None = Query(None),
+):
+    TenantQuery(db, Employee, tenant_id).get_or_404(employee_id, "Employee")
+    q = db.query(TaxDeclaration).filter(TaxDeclaration.tenant_id == tenant_id, TaxDeclaration.employee_id == employee_id)
+    if financial_year:
+        q = q.filter(TaxDeclaration.financial_year == financial_year)
+    decls = q.order_by(TaxDeclaration.created_at.desc()).all()
+    return {
+        "declarations": [
+            {
+                "id": str(d.id), "financial_year": d.financial_year, "regime": d.regime,
+                "section_80c": float(d.section_80c), "section_80d": float(d.section_80d),
+                "hra_exemption": float(d.hra_exemption), "home_loan_interest": float(d.home_loan_interest),
+                "other_deductions": float(d.other_deductions), "status": d.status,
+            }
+            for d in decls
+        ]
+    }
+
+
+@router.post("/tax-declarations", status_code=201)
+def create_tax_declaration(
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+    tenant_id: Annotated[uuid.UUID, Depends(get_tenant_id)],
+    payload: dict = Body(...),
+):
+    emp_id = uuid.UUID(payload["employee_id"])
+    TenantQuery(db, Employee, tenant_id).get_or_404(emp_id, "Employee")
+    td = TaxDeclaration(
+        tenant_id=tenant_id, employee_id=emp_id,
+        financial_year=payload.get("financial_year", "2025-26"),
+        regime=payload.get("regime", "new"),
+        section_80c=float(payload.get("section_80c", 0)),
+        section_80d=float(payload.get("section_80d", 0)),
+        hra_exemption=float(payload.get("hra_exemption", 0)),
+        home_loan_interest=float(payload.get("home_loan_interest", 0)),
+        other_deductions=float(payload.get("other_deductions", 0)),
+    )
+    db.add(td)
+    db.commit()
+    db.refresh(td)
+    return {"id": str(td.id), "regime": td.regime, "financial_year": td.financial_year}
+
+
+@router.get("/tax-declarations/{employee_id}/compare")
+def compare_tax_regimes(
+    employee_id: uuid.UUID,
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+    tenant_id: Annotated[uuid.UUID, Depends(get_tenant_id)],
+):
+    TenantQuery(db, Employee, tenant_id).get_or_404(employee_id, "Employee")
+    salary = (
+        db.query(SalaryStructure)
+        .filter(SalaryStructure.tenant_id == tenant_id, SalaryStructure.employee_id == employee_id, SalaryStructure.status == "active")
+        .first()
+    )
+    if not salary:
+        raise BadRequestError("No active salary structure found for this employee")
+
+    annual_gross = float(salary.annual_ctc)
+    decl = (
+        db.query(TaxDeclaration)
+        .filter(TaxDeclaration.tenant_id == tenant_id, TaxDeclaration.employee_id == employee_id)
+        .order_by(TaxDeclaration.created_at.desc())
+        .first()
+    )
+    s80c = float(decl.section_80c) if decl else 0
+    s80d = float(decl.section_80d) if decl else 0
+    hra = float(decl.hra_exemption) if decl else 0
+    hl = float(decl.home_loan_interest) if decl else 0
+    other = float(decl.other_deductions) if decl else 0
+
+    return compare_regimes(annual_gross, s80c, s80d, hra, hl, other)
+
+
+# ─── Holidays ─────────────────────────────────────────────────────────────
+
+@router.get("/holidays")
+def list_holidays(
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+    tenant_id: Annotated[uuid.UUID, Depends(get_tenant_id)],
+    year: int | None = Query(None),
+):
+    tq = TenantQuery(db, Holiday, tenant_id)
+    if year:
+        tq = tq.filter(Holiday.year == year)
+    holidays = tq.all(order_by=Holiday.date)
+    return {
+        "holidays": [
+            {"id": str(h.id), "date": str(h.date), "name": h.name, "type": h.type, "year": h.year}
+            for h in holidays
+        ]
+    }
+
+
+@router.post("/holidays", status_code=201)
+def create_holiday(
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(require_role("super_admin", "admin", "hr_manager"))],
+    tenant_id: Annotated[uuid.UUID, Depends(get_tenant_id)],
+    payload: dict = Body(...),
+):
+    h = Holiday(
+        tenant_id=tenant_id,
+        date=date.fromisoformat(payload["date"]),
+        name=payload["name"],
+        type=payload.get("type", "company"),
+        year=int(payload.get("year", date.fromisoformat(payload["date"]).year)),
+    )
+    db.add(h)
+    db.commit()
+    db.refresh(h)
+    return {"id": str(h.id), "date": str(h.date), "name": h.name, "type": h.type}
+
+
+@router.delete("/holidays/{holiday_id}")
+def delete_holiday(
+    holiday_id: uuid.UUID,
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(require_role("super_admin", "admin"))],
+    tenant_id: Annotated[uuid.UUID, Depends(get_tenant_id)],
+):
+    h = TenantQuery(db, Holiday, tenant_id).get_or_404(holiday_id, "Holiday")
+    db.delete(h)
+    db.commit()
+    return {"deleted": True}
+
+
+# ─── Leave Types ──────────────────────────────────────────────────────────
+
+@router.get("/leave-types")
+def list_leave_types(
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+    tenant_id: Annotated[uuid.UUID, Depends(get_tenant_id)],
+):
+    types = TenantQuery(db, LeaveType, tenant_id).all(order_by=LeaveType.code)
+    return {
+        "leave_types": [
+            {"id": str(t.id), "code": t.code, "name": t.name, "description": t.description, "is_active": t.is_active}
+            for t in types
+        ]
+    }
+
+
+@router.post("/leave-types", status_code=201)
+def create_leave_type(
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(require_role("super_admin", "admin", "hr_manager"))],
+    tenant_id: Annotated[uuid.UUID, Depends(get_tenant_id)],
+    payload: dict = Body(...),
+):
+    lt = LeaveType(
+        tenant_id=tenant_id, code=payload["code"], name=payload["name"],
+        description=payload.get("description"),
+    )
+    db.add(lt)
+    db.commit()
+    db.refresh(lt)
+    return {"id": str(lt.id), "code": lt.code, "name": lt.name}
+
+
+# ─── Leave Policies ───────────────────────────────────────────────────────
+
+@router.get("/leave-policies")
+def list_leave_policies(
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+    tenant_id: Annotated[uuid.UUID, Depends(get_tenant_id)],
+):
+    policies = TenantQuery(db, LeavePolicy, tenant_id).all()
+    type_map = {t.id: t for t in TenantQuery(db, LeaveType, tenant_id).all()}
+    return {
+        "policies": [
+            {
+                "id": str(p.id), "leave_type_id": str(p.leave_type_id),
+                "leave_type_code": type_map[p.leave_type_id].code if p.leave_type_id in type_map else None,
+                "leave_type_name": type_map[p.leave_type_id].name if p.leave_type_id in type_map else None,
+                "entitled_days": float(p.entitled_days),
+                "carry_forward_enabled": p.carry_forward_enabled,
+                "carry_forward_max": float(p.carry_forward_max),
+                "max_consecutive_days": p.max_consecutive_days,
+                "min_notice_days": p.min_notice_days,
+                "applicable_gender": p.applicable_gender,
+                "probation_months": p.probation_months,
+                "is_active": p.is_active,
+            }
+            for p in policies
+        ]
+    }
+
+
+@router.post("/leave-policies", status_code=201)
+def create_leave_policy(
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(require_role("super_admin", "admin", "hr_manager"))],
+    tenant_id: Annotated[uuid.UUID, Depends(get_tenant_id)],
+    payload: dict = Body(...),
+):
+    lp = LeavePolicy(
+        tenant_id=tenant_id, leave_type_id=uuid.UUID(payload["leave_type_id"]),
+        entitled_days=float(payload["entitled_days"]),
+        carry_forward_enabled=payload.get("carry_forward_enabled", False),
+        carry_forward_max=float(payload.get("carry_forward_max", 0)),
+        max_consecutive_days=payload.get("max_consecutive_days"),
+        min_notice_days=payload.get("min_notice_days", 0),
+        applicable_gender=payload.get("applicable_gender", "all"),
+        probation_months=payload.get("probation_months", 0),
+    )
+    db.add(lp)
+    db.commit()
+    db.refresh(lp)
+    return {"id": str(lp.id), "entitled_days": float(lp.entitled_days)}
+
+
+@router.post("/leave-allocate", status_code=201)
+def allocate_leave_balances(
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(require_role("super_admin", "admin", "hr_manager"))],
+    tenant_id: Annotated[uuid.UUID, Depends(get_tenant_id)],
+    payload: dict = Body(...),
+):
+    """Auto-generate LeaveBalance for all active employees from leave policies."""
+    year = payload.get("year", date.today().year)
+    employees = TenantQuery(db, Employee, tenant_id).filter(Employee.status == "active").all()
+    policies = TenantQuery(db, LeavePolicy, tenant_id).filter(LeavePolicy.is_active == True).all()
+    type_map = {t.id: t for t in TenantQuery(db, LeaveType, tenant_id).all()}
+
+    created = 0
+    for emp in employees:
+        for pol in policies:
+            lt = type_map.get(pol.leave_type_id)
+            if not lt:
+                continue
+            existing = (
+                db.query(LeaveBalance)
+                .filter(LeaveBalance.tenant_id == tenant_id, LeaveBalance.employee_id == emp.id,
+                        LeaveBalance.leave_type == lt.code, LeaveBalance.year == year)
+                .first()
+            )
+            if existing:
+                continue
+            db.add(LeaveBalance(
+                tenant_id=tenant_id, employee_id=emp.id, leave_type=lt.code,
+                entitled=pol.entitled_days, used=0, balance=pol.entitled_days,
+                carry_forward_max=pol.carry_forward_max, year=year,
+            ))
+            created += 1
+
+    db.commit()
+    return {"allocated": created, "year": year, "employees": len(employees), "policies": len(policies)}
