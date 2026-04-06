@@ -48,7 +48,10 @@ function calcBreakdown(annualCtc: number) {
 }
 
 export function SalaryStructure() {
-  const { data: employees, loading } = useApiData<Employee[]>("/hr/employees", [])
+  const { data: employees, loading } = useApiData<Employee[]>(
+    "/hr/employees", [],
+    (raw: any) => Array.isArray(raw) ? raw : (raw?.employees ?? [])
+  )
   const [selectedEmpId, setSelectedEmpId] = useState("")
   const [salary, setSalary] = useState<SalaryRecord[]>([])
   const [salaryLoading, setSalaryLoading] = useState(false)

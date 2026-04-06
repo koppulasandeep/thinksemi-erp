@@ -48,7 +48,10 @@ const emptyForm = { date: "", name: "", type: "national" as Holiday["type"] }
 
 export function Holidays() {
   const [year, setYear] = useState(2026)
-  const { data: holidays, loading, refetch } = useApiData<Holiday[]>(`/hr/holidays?year=${year}`, [])
+  const { data: holidays, loading, refetch } = useApiData<Holiday[]>(
+    `/hr/holidays?year=${year}`, [],
+    (raw: any) => Array.isArray(raw) ? raw : (raw?.holidays ?? [])
+  )
 
   const [showDialog, setShowDialog] = useState(false)
   const [form, setForm] = useState(emptyForm)

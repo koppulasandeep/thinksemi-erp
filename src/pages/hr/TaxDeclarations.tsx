@@ -47,7 +47,10 @@ const emptyForm = {
 }
 
 export function TaxDeclarations() {
-  const { data: employees } = useApiData<Employee[]>("/hr/employees", [])
+  const { data: employees } = useApiData<Employee[]>(
+    "/hr/employees", [],
+    (raw: any) => Array.isArray(raw) ? raw : (raw?.employees ?? [])
+  )
   const [selectedEmpId, setSelectedEmpId] = useState("")
   const [_declaration, setDeclaration] = useState<TaxDeclaration | null>(null)
   const [declLoading, setDeclLoading] = useState(false)

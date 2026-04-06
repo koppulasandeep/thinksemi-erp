@@ -50,8 +50,14 @@ const emptyForm = {
 }
 
 export function ItemMaster() {
-  const { data: items, loading, refetch } = useApiData<Item[]>("/item-master/items", [])
-  const { data: groups } = useApiData<ItemGroup[]>("/item-master/groups", [])
+  const { data: items, loading, refetch } = useApiData<Item[]>(
+    "/item-master/items", [],
+    (raw: any) => Array.isArray(raw) ? raw : (raw?.items ?? [])
+  )
+  const { data: groups } = useApiData<ItemGroup[]>(
+    "/item-master/groups", [],
+    (raw: any) => Array.isArray(raw) ? raw : (raw?.groups ?? [])
+  )
 
   const [search, setSearch] = useState("")
   const [groupFilter, setGroupFilter] = useState("")
