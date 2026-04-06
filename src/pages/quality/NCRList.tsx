@@ -15,6 +15,7 @@ import { StatusBadge } from "@/components/shared/StatusBadge"
 import { KPICard } from "@/components/shared/KPICard"
 import { cn } from "@/lib/utils"
 import { ExportButtons } from "@/components/shared/ExportButtons"
+import { LoadingSpinner } from "@/components/shared/LoadingSpinner"
 import { useApiData, transformList } from "@/lib/useApi"
 
 interface NCR {
@@ -116,7 +117,7 @@ const severityColors: Record<string, string> = {
 }
 
 export function NCRList() {
-  const { data: ncrs } = useApiData<NCR[]>("/quality/ncr", ncrData, (raw: any) =>
+  const { data: ncrs, loading } = useApiData<NCR[]>("/quality/ncr", ncrData, (raw: any) =>
     transformList<NCR>(raw?.ncrs ?? [], (item: any) => ({
       id: item.id,
       board: item.board,
@@ -142,6 +143,8 @@ export function NCRList() {
   const criticalCount = ncrs.filter(
     (n) => n.severity === "critical" && n.status !== "completed"
   ).length
+
+  if (loading) return <LoadingSpinner text="Loading NCRs..." />
 
   return (
     <div className="space-y-6">

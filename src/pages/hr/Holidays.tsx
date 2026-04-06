@@ -15,6 +15,8 @@ import { Input } from "@/components/ui/input"
 import { PageHeader } from "@/components/shared/PageHeader"
 import { KPICard } from "@/components/shared/KPICard"
 import { cn, formatNumber } from "@/lib/utils"
+import { LoadingSpinner } from "@/components/shared/LoadingSpinner"
+import { useToast } from "@/components/shared/Toast"
 import { useApiData } from "@/lib/useApi"
 import { api } from "@/lib/api"
 import { getCurrentUser } from "@/lib/auth"
@@ -51,6 +53,7 @@ export function Holidays() {
   const [showDialog, setShowDialog] = useState(false)
   const [form, setForm] = useState(emptyForm)
   const [submitting, setSubmitting] = useState(false)
+  const { toast } = useToast()
 
   const user = getCurrentUser()
   const isAdmin = user?.role && ["super_admin", "admin", "hr_manager"].includes(user.role)
@@ -69,8 +72,9 @@ export function Holidays() {
       setShowDialog(false)
       setForm(emptyForm)
       refetch()
+      toast("success", "Holiday added")
     } catch {
-      // handled by api layer
+      toast("error", "Failed to add holiday")
     } finally {
       setSubmitting(false)
     }
@@ -81,10 +85,13 @@ export function Holidays() {
     try {
       await api.delete(`/hr/holidays/${id}`)
       refetch()
+      toast("success", "Holiday deleted")
     } catch {
-      // handled by api layer
+      toast("error", "Failed to delete holiday")
     }
   }
+
+  if (loading) return <LoadingSpinner text="Loading holidays..." />
 
   return (
     <div className="space-y-6">
@@ -129,9 +136,7 @@ export function Holidays() {
               </tr>
             </thead>
             <tbody>
-              {loading ? (
-                <tr><td colSpan={canDelete ? 4 : 3} className="p-6 text-center text-muted-foreground">Loading...</td></tr>
-              ) : holidays.length === 0 ? (
+              {holidays.length === 0 ? (
                 <tr><td colSpan={canDelete ? 4 : 3} className="p-6 text-center text-muted-foreground">No holidays found for {year}</td></tr>
               ) : (
                 holidays.map((holiday) => {

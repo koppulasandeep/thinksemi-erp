@@ -11,6 +11,8 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { PageHeader } from "@/components/shared/PageHeader"
 import { cn, formatCurrency } from "@/lib/utils"
+import { LoadingSpinner } from "@/components/shared/LoadingSpinner"
+import { useToast } from "@/components/shared/Toast"
 import { useApiData } from "@/lib/useApi"
 import { api } from "@/lib/api"
 import { getCurrentUser } from "@/lib/auth"
@@ -46,13 +48,14 @@ function calcBreakdown(annualCtc: number) {
 }
 
 export function SalaryStructure() {
-  const { data: employees } = useApiData<Employee[]>("/hr/employees", [])
+  const { data: employees, loading } = useApiData<Employee[]>("/hr/employees", [])
   const [selectedEmpId, setSelectedEmpId] = useState("")
   const [salary, setSalary] = useState<SalaryRecord[]>([])
   const [salaryLoading, setSalaryLoading] = useState(false)
   const [showForm, setShowForm] = useState(false)
   const [ctcInput, setCtcInput] = useState("")
   const [submitting, setSubmitting] = useState(false)
+  const { toast } = useToast()
 
   const user = getCurrentUser()
   const isAdmin = user?.role && ["super_admin", "admin", "hr_manager"].includes(user.role)
@@ -88,8 +91,9 @@ export function SalaryStructure() {
       // refetch salary
       const data = await api.get<SalaryRecord[]>(`/hr/salary/${selectedEmpId}`)
       setSalary(Array.isArray(data) ? data : [])
+      toast("success", "Salary revision saved")
     } catch {
-      // handled by api layer
+      toast("error", "Failed to save salary revision")
     } finally {
       setSubmitting(false)
     }
@@ -100,6 +104,8 @@ export function SalaryStructure() {
     revised: "bg-amber-100 text-amber-700",
     draft: "bg-gray-100 text-gray-600",
   }
+
+  if (loading) return <LoadingSpinner text="Loading employees..." />
 
   return (
     <div className="space-y-6">
@@ -132,7 +138,7 @@ export function SalaryStructure() {
       )}
 
       {selectedEmpId && salaryLoading && (
-        <Card><CardContent className="py-12 text-center text-muted-foreground">Loading salary data...</CardContent></Card>
+        <LoadingSpinner text="Loading salary data..." />
       )}
 
       {/* Current CTC Breakdown */}

@@ -14,6 +14,8 @@ import { Input } from "@/components/ui/input"
 import { PageHeader } from "@/components/shared/PageHeader"
 import { KPICard } from "@/components/shared/KPICard"
 import { cn, formatNumber } from "@/lib/utils"
+import { LoadingSpinner } from "@/components/shared/LoadingSpinner"
+import { useToast } from "@/components/shared/Toast"
 import { useApiData } from "@/lib/useApi"
 import { api } from "@/lib/api"
 import { getCurrentUser } from "@/lib/auth"
@@ -56,6 +58,7 @@ export function ItemMaster() {
   const [showDialog, setShowDialog] = useState(false)
   const [form, setForm] = useState(emptyForm)
   const [submitting, setSubmitting] = useState(false)
+  const { toast } = useToast()
 
   const user = getCurrentUser()
   const isAdmin = user?.role && ["super_admin", "admin", "hr_manager"].includes(user.role)
@@ -80,8 +83,9 @@ export function ItemMaster() {
       setShowDialog(false)
       setForm(emptyForm)
       refetch()
+      toast("success", "Item created")
     } catch {
-      // error handled by api layer
+      toast("error", "Failed to create item")
     } finally {
       setSubmitting(false)
     }
@@ -92,6 +96,8 @@ export function ItemMaster() {
     obsolete: "bg-red-100 text-red-700",
     draft: "bg-gray-100 text-gray-600",
   }
+
+  if (loading) return <LoadingSpinner text="Loading items..." />
 
   return (
     <div className="space-y-6">
@@ -148,9 +154,7 @@ export function ItemMaster() {
               </tr>
             </thead>
             <tbody>
-              {loading ? (
-                <tr><td colSpan={7} className="p-6 text-center text-muted-foreground">Loading...</td></tr>
-              ) : filtered.length === 0 ? (
+              {filtered.length === 0 ? (
                 <tr><td colSpan={7} className="p-6 text-center text-muted-foreground">No items found</td></tr>
               ) : (
                 filtered.map((item) => (

@@ -26,6 +26,7 @@ import { KPICard } from "@/components/shared/KPICard"
 import { StatusBadge } from "@/components/shared/StatusBadge"
 import { cn, formatCurrency, formatNumber } from "@/lib/utils"
 import { ExportButtons } from "@/components/shared/ExportButtons"
+import { LoadingSpinner } from "@/components/shared/LoadingSpinner"
 import { salesOrders } from "@/lib/mock-data"
 import { useApiData, snakeToCamel } from "@/lib/useApi"
 
@@ -70,7 +71,7 @@ const milestoneIcons = {
 }
 
 export function SalesOrders() {
-  const { data: orders } = useApiData(
+  const { data: orders, loading } = useApiData(
     "/supply-chain/sales-orders",
     salesOrders,
     (raw: any) => {
@@ -140,6 +141,8 @@ export function SalesOrders() {
   function isOverdue(dueDate: string, status: string) {
     return new Date(dueDate) < today && status !== "shipped" && status !== "delivered" && status !== "invoiced"
   }
+
+  if (loading) return <LoadingSpinner text="Loading sales orders..." />
 
   return (
     <div className="space-y-6">

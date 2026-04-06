@@ -15,11 +15,12 @@ import { PageHeader } from "@/components/shared/PageHeader"
 import { KPICard } from "@/components/shared/KPICard"
 import { cn, formatCurrency, formatNumber } from "@/lib/utils"
 import { ExportButtons } from "@/components/shared/ExportButtons"
+import { LoadingSpinner } from "@/components/shared/LoadingSpinner"
 import { inventoryItems } from "@/lib/mock-data"
 import { useApiData, snakeToCamel } from "@/lib/useApi"
 
 export function InventoryDashboard() {
-  const { data: invItems } = useApiData(
+  const { data: invItems, loading } = useApiData(
     "/inventory/items",
     inventoryItems,
     (raw: any) => {
@@ -65,6 +66,8 @@ export function InventoryDashboard() {
     low: "bg-warning/5",
     ok: "",
   }
+
+  if (loading) return <LoadingSpinner text="Loading inventory..." />
 
   return (
     <div className="space-y-6">
