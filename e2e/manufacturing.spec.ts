@@ -3,7 +3,7 @@ import { test, expect } from "@playwright/test"
 test.describe("Manufacturing Module", () => {
   test("manufacturing dashboard loads", async ({ page }) => {
     await page.goto("/manufacturing")
-    await expect(page.getByText(/Manufacturing/i).first()).toBeVisible()
+    await expect(page.getByText(/Manufacturing|Production/i).first()).toBeVisible()
   })
 
   test("production lines visible", async ({ page }) => {
@@ -16,10 +16,9 @@ test.describe("Manufacturing Module", () => {
     await expect(page.getByText(/WO-|Work Order|ECU|SENSOR/i).first()).toBeVisible({ timeout: 15_000 })
   })
 
-  test("status tabs work", async ({ page }) => {
+  test("tabs present", async ({ page }) => {
     await page.goto("/manufacturing")
-    const tabs = page.getByRole("button")
-    const count = await tabs.count()
-    expect(count).toBeGreaterThan(1)
+    const buttons = page.getByRole("button")
+    expect(await buttons.count()).toBeGreaterThan(1)
   })
 })

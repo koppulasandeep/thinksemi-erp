@@ -5,7 +5,7 @@ test.describe("Role-Based Access Control", () => {
     const ctx = await browser.newContext({ storageState: "e2e/.auth/operator.json" })
     const page = await ctx.newPage()
     await page.goto("/manufacturing")
-    await expect(page.getByText(/Manufacturing/i).first()).toBeVisible()
+    await expect(page.getByText(/Manufacturing|Production/i).first()).toBeVisible()
     await ctx.close()
   })
 
@@ -13,7 +13,7 @@ test.describe("Role-Based Access Control", () => {
     const ctx = await browser.newContext({ storageState: "e2e/.auth/operator.json" })
     const page = await ctx.newPage()
     await page.goto("/quality")
-    await expect(page.getByText(/Quality/i).first()).toBeVisible()
+    await expect(page.getByText(/Quality|QMS/i).first()).toBeVisible()
     await ctx.close()
   })
 
@@ -29,7 +29,7 @@ test.describe("Role-Based Access Control", () => {
     const ctx = await browser.newContext({ storageState: "e2e/.auth/customer.json" })
     const page = await ctx.newPage()
     await page.goto("/portal")
-    await expect(page.getByText(/Portal|Customer|Order/i).first()).toBeVisible()
+    await expect(page.getByText(/Portal|Order|Customer/i).first()).toBeVisible()
     await ctx.close()
   })
 

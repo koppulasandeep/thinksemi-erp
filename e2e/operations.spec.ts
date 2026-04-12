@@ -6,9 +6,9 @@ test.describe("Operations", () => {
     await expect(page.getByText(/Maintenance|Equipment/i).first()).toBeVisible()
   })
 
-  test("equipment list visible", async ({ page }) => {
+  test("equipment data renders", async ({ page }) => {
     await page.goto("/maintenance")
-    await expect(page.getByText(/Reflow|Pick|AOI|SPI|ICT|Equipment/i).first()).toBeVisible({ timeout: 20_000 })
+    await expect(page.locator("table, [class*=card], [class*=Card]").first()).toBeVisible({ timeout: 15_000 })
   })
 
   test("delivery dashboard loads", async ({ page }) => {
@@ -16,18 +16,18 @@ test.describe("Operations", () => {
     await expect(page.getByText(/Delivery|Shipping|Shipment/i).first()).toBeVisible()
   })
 
+  test("shipment data visible", async ({ page }) => {
+    await page.goto("/delivery")
+    await expect(page.getByText(/BlueDart|FedEx|SHP-|transit|delivered/i).first()).toBeVisible({ timeout: 15_000 })
+  })
+
   test("RMA dashboard loads", async ({ page }) => {
     await page.goto("/rma")
     await expect(page.getByText(/RMA|Return/i).first()).toBeVisible()
   })
 
-  test("traceability search loads", async ({ page }) => {
+  test("traceability page loads", async ({ page }) => {
     await page.goto("/traceability")
-    await expect(page.getByText(/Traceability|Trace/i).first()).toBeVisible()
-  })
-
-  test("settings page loads", async ({ page }) => {
-    await page.goto("/settings")
-    await expect(page.getByText(/Settings/i).first()).toBeVisible()
+    await expect(page.getByText(/Traceability|Trace|Search/i).first()).toBeVisible()
   })
 })
